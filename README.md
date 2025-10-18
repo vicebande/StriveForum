@@ -1,27 +1,28 @@
-# README for StriveForum - Fighting Game Community
+# README de StriveForum - Comunidad de Juegos de Pelea
 
-## Overview
+## Descripción general
 
-StriveForum is a web application designed for the fighting game community. It provides a platform for players to connect, discuss strategies, and find matches. The application features user authentication, forums for various games, and resources for learning and improving gameplay.
+**StriveForum** es una aplicación web diseñada para la comunidad de juegos de pelea. Proporciona una plataforma donde los jugadores pueden **conectarse, discutir estrategias y encontrar partidas**.  
+La aplicación incluye **autenticación de usuarios**, **foros** para distintos juegos y **recursos de aprendizaje** para mejorar el rendimiento en el juego.
 
-## Project Structure
+## Estructura del proyecto
 
-The project is structured as follows:
+El proyecto está estructurado de la siguiente manera:
 
 ```
-entrega-1-fsk2-005-grupo-1-react
+StriveForum
 ├── public
-│   ├── index.html          # Main HTML file for the React application
+│   ├── index.html          # Archivo HTML principal de la aplicación React
 │   └── static
 │       ├── style
-│       │   └── style.css   # CSS styles for the application
+│       │   └── style.css   # Estilos CSS de la aplicación
 │       └── js
-│           └── main.js     # JavaScript for pre-loading scripts
+│           └── main.js     # Script JavaScript de precarga
 ├── src
-│   ├── main.jsx            # Entry point of the React application
-│   ├── App.jsx             # Main App component
-│   ├── index.css           # Global CSS styles
-│   ├── components          # Contains all React components
+│   ├── main.jsx            # Punto de entrada de la aplicación React
+│   ├── App.jsx             # Componente principal de la aplicación
+│   ├── index.css           # Estilos CSS globales
+│   ├── components          # Contiene todos los componentes de React
 │   │   ├── Navbar.jsx
 │   │   ├── Hero.jsx
 │   │   ├── HomeSection.jsx
@@ -29,56 +30,59 @@ entrega-1-fsk2-005-grupo-1-react
 │   │   ├── ForumsSection.jsx
 │   │   ├── MatchmakingSection.jsx
 │   │   ├── LearningSection.jsx
-│   │   └── modals          # Contains modal components
+│   │   └── modals          # Contiene los componentes modales
 │   │       ├── LoginModal.jsx
 │   │       ├── RegisterModal.jsx
 │   │       ├── CreateTopicModal.jsx
 │   │       └── EditProfileModal.jsx
-│   ├── hooks               # Custom hooks
+│   ├── hooks               # Hooks personalizados
 │   │   └── useAuth.js
-│   ├── services            # API service functions
+│   ├── services            # Funciones de servicio para las API
 │   │   └── api.js
-│   └── utils               # Utility functions
+│   └── utils               # Funciones utilitarias
 │       └── helpers.js
-├── package.json            # npm configuration file
-├── .gitignore              # Git ignore file
-└── README.md               # Project documentation
+├── package.json            # Archivo de configuración de npm
+├── .gitignore              # Archivo de exclusión de Git
+└── README.md               # Documentación del proyecto
 ```
 
-## Getting Started
+## Cómo empezar
 
-To get started with the project, follow these steps:
+Para comenzar a usar el proyecto, sigue estos pasos:
 
-1. **Clone the repository:**
+1. **Clonar el repositorio:**
    ```
    git clone <repository-url>
-   cd entrega-1-fsk2-005-grupo-1-react
+   cd StriveForum
    ```
 
-2. **Install dependencies:**
+2. **Instalar las dependencias:**
    ```
    npm install
    ```
 
-3. **Run the application:**
+3. **Ejecutar la aplicación:**
    ```
    npm start
    ```
 
-The application will be available at `http://localhost:3000`.
+La aplicación estará disponible en:  
+👉 `http://localhost:3000`
 
-## Features
+## Funcionalidades
 
-- User authentication (login and registration)
-- Discussion forums for various fighting games
-- Matchmaking functionality
-- Learning resources including tutorials and guides
-- User dashboard with statistics and recent activity
+- Autenticación de usuarios (inicio de sesión y registro)
+- Foros de discusión para distintos juegos de pelea
+- Funcionalidad de emparejamiento (matchmaking)
+- Recursos de aprendizaje, como tutoriales y guías
+- Panel de usuario con estadísticas y actividad reciente
 
-## Contributing
+## Contribuciones
 
-Contributions are welcome! Please submit a pull request or open an issue for any suggestions or improvements.
+¡Las contribuciones son bienvenidas!  
+Puedes enviar un **pull request** o abrir un **issue** con tus sugerencias o mejoras.
 
-## License
+## Licencia
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+Este proyecto está bajo la **Licencia MIT**.  
+Consulta el archivo `LICENSE` para más detalles.
