@@ -1,0 +1,983 @@
+/* Global styles for the React application - palette: negros, rojos, amarillos */
+
+:root {
+  --bg-dark: #0b0b0b;
+  --panel-dark: #111;
+  --text-light: #f6f5f3;
+  --accent-red: #e53935;   /* rojo principal */
+  --accent-yellow: #ffcc00; /* amarillo */
+  --muted: #6c6c6c;
+
+  /* Añadir color azul para botones secundarios / estilo hero/login */
+  --accent-blue: #238be6; /* azul principal */
+  --accent-blue-dark: #1767c2;
+}
+
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-light);
+}
+
+/* links */
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px;
+}
+
+/* cards / panels */
+.card-custom {
+    background-color: var(--panel-dark);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* hero */
+.hero-section {
+  padding: 60px 0;
+  /* Degradado rojo oscuro -> negro */
+  background: linear-gradient(180deg,
+    #4b0000 0%,
+    #330000 30%,
+    rgba(40,0,0,0.85) 60%,
+    #000000 100%
+  );
+  color: var(--text-light);
+}
+
+/* contenedores dentro del hero para dejar pasar el degradado */
+.hero-content, .hero-video {
+  background: rgba(20,8,8,0.45); /* semitransparente para mostrar el degradado */
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.03);
+  backdrop-filter: blur(4px);
+}
+
+/* accents */
+.text-accent {
+    color: var(--accent-yellow);
+}
+
+/* buttons */
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent-red), #b72b2b);
+  border-color: rgba(0,0,0,0.12);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(229,57,53,0.12);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.btn-primary:hover, .btn-primary:focus {
+  background: linear-gradient(180deg, #d64545, #a82a2a);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(229,57,53,0.16);
+}
+
+/* Botones secundarios (login, ver foros en hero, etc.) ahora azules */
+.btn-secondary {
+  background: linear-gradient(180deg, var(--accent-blue), var(--accent-blue-dark));
+  border-color: rgba(0,0,0,0.12);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(35,139,230,0.10);
+}
+.btn-secondary:hover,
+.btn-secondary:focus {
+  background: linear-gradient(180deg, #2b96ee, #135fb1);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(35,139,230,0.14);
+}
+
+/* Asegurar que los botones secundarios dentro del hero conserven el mismo estilo */
+.hero-buttons .btn-secondary {
+  background: linear-gradient(180deg, var(--accent-blue), var(--accent-blue-dark));
+  color: #fff;
+}
+
+/* Navbar / small secondary buttons (ej. Iniciar Sesión) */
+.navbar .btn-secondary {
+  padding: 6px 10px;
+  font-size: 0.95rem;
+}
+
+.btn-link {
+  color: #fff;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.btn-link:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--accent-yellow);
+}
+
+/* Botones pequeños (mantener legibilidad) */
+.btn-sm {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* botón flotante: más elegante, borde y sombra */
+.fab-post {
+  background: linear-gradient(180deg, var(--accent-red), #c13232);
+  border: 2px solid rgba(0,0,0,0.2);
+  box-shadow: 0 18px 40px rgba(197,40,40,0.18);
+  color: #fff;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.fab-post:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 48px rgba(197,40,40,0.24);
+}
+
+/* Acción positiva (crear primer post) */
+.btn-success-like {
+  color: #fff;
+  background: linear-gradient(180deg, #2dbb6a, #22a85a);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+.btn-success-like:hover { opacity: 0.95; transform: translateY(-1px); }
+
+/* navbar */
+.navbar-custom {
+    background-color: #000; /* negro solido */
+    border-bottom: 3px solid var(--accent-red);
+}
+
+.navbar-nav .nav-link {
+    color: var(--text-light);
+    padding: 0.5rem 0.75rem;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--accent-yellow);
+}
+
+.navbar-nav .nav-link.active {
+    color: var(--accent-red);
+    font-weight: 600;
+}
+
+/* modal content (if using bootstrap classes elsewhere) */
+.modal-content {
+    background-color: var(--panel-dark);
+    color: var(--text-light);
+    border: 1px solid rgba(255,255,255,0.04);
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+/* profile / dashboard */
+.profile-info {
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.dashboard-stat-card {
+    background-color: #0f0f0f;
+    border-radius: 0.5rem;
+    padding: 20px;
+    text-align: center;
+    color: var(--text-light);
+}
+
+.dashboard-stat-card h3 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.forum-category {
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 0.5rem;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+}
+
+.forum-category h4 {
+    margin: 0;
+}
+
+.forum-category .badge {
+    margin-left: 10px;
+    background: var(--accent-red);
+    color: #fff;
+}
+
+/* Forzar descripciones de las categorías del foro a color claro */
+.forum-category p.text-muted,
+.forum-category .text-muted {
+  color: var(--text-light) !important;
+}
+
+/* estilos para modales flotantes (simple, compatibles con Bootstrap) */
+.rf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1055; /* encima de navbar */
+}
+
+.rf-modal {
+  background: var(--panel-dark);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.8);
+  overflow: hidden;
+  animation: rfModalIn .12s ease-out;
+  color: var(--text-light);
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+.rf-modal-header, .rf-modal-footer {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.rf-modal-body {
+  padding: 12px 16px;
+}
+
+.rf-modal .form-control {
+  background: #0b0b0b;
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-light);
+}
+
+.rf-modal .form-control::placeholder {
+  color: var(--muted);
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-light);
+}
+
+/* pequeños detalles: encabezados y acentos */
+h1,h2,h3,h4,h5 {
+  color: var(--text-light);
+}
+
+.small-accent {
+  color: var(--accent-red);
+}
+
+/* pequeña animación */
+@keyframes rfModalIn {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* HERO layout / video */
+.hero-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: center;
+  padding: 36px 0;
+}
+
+@media (max-width: 880px) {
+  .hero-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.hero-content h2 {
+  margin-top: 8px;
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--text-light);
+}
+
+.hero-content .lead {
+  margin: 12px 0 18px;
+  color: #cfcfcf;
+  max-width: 560px;
+}
+
+.hero-buttons .btn {
+  margin-right: 10px;
+}
+
+/* video: grande y proporcionado similar a la columna de descripción */
+.hero-video video {
+  width: 100%;
+  height: 100%;
+  min-height: 260px; /* mayor altura por defecto */
+  max-height: 480px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.04);
+  background: #000;
+  display: block;
+}
+
+/* icono StriveForum si usas <i class="fas fa-fist-raised"></i> o similar */
+/* icono en rojo, texto de la marca en amarillo */
+.navbar-brand {
+  color: var(--accent-yellow);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar-brand i,
+.navbar-brand .fa {
+  color: var(--accent-red);
+  font-size: 1.15rem;
+}
+
+/* small-accent ahora amarillo (para headings en Hero/modal) */
+.small-accent {
+  color: var(--accent-yellow);
+}
+
+/* mejora contraste del poster/video en temas oscuros */
+.hero-video video::-webkit-media-controls { background: rgba(0,0,0,0.6); }
+
+/* VIDEO embed responsive (YouTube iframe) */
+.hero-video .video-embed {
+  position: relative;
+  width: 100%;
+  padding-top: 60%; /* ligeramente más alto que 16:9 */
+  min-height: 320px;
+  max-height: 720px;
+  overflow: hidden;
+}
+
+.hero-video .video-embed iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;              /* elimina borde transparente */
+  border-radius: 6px;        /* reducir o quitar si prefieres sin radio */
+  background: #000;          /* evita halos transparentes */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+}
+
+/* Si el fallback usa .card-custom dentro de .hero-video, evitar bordes */
+.hero-video .card-custom {
+  border: none;
+  background: transparent;
+}
+
+/* NOTIFICATIONS: top-right */
+.notifications-container {
+  position: fixed;
+  top: 76px; /* desplazado hacia abajo para no tapar el navbar (ajusta si tu navbar es más alto) */
+  right: 16px;
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+}
+
+/* base */
+.notif {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  border-left: 6px solid transparent;
+  animation: notifIn .18s ease;
+  background: rgba(0,0,0,0.45);
+}
+
+/* types */
+.notif-success {
+  background: linear-gradient(90deg, rgba(34,139,34,0.12), rgba(34,139,34,0.06));
+  border-left-color: #2ecc71;
+}
+.notif-info {
+  background: linear-gradient(90deg, rgba(30,144,255,0.10), rgba(30,144,255,0.04));
+  border-left-color: #1e90ff;
+}
+.notif-error {
+  background: linear-gradient(90deg, rgba(231,76,60,0.10), rgba(231,76,60,0.04));
+  border-left-color: #e74c3c;
+}
+
+.notif-title {
+  display:block;
+  font-size: 13px;
+  color: #fff;
+}
+.notif-msg {
+  font-size: 13px;
+  color: #f3f3f3;
+  margin-top: 4px;
+}
+
+/* layout */
+.notif-body {
+  flex: 1;
+}
+
+/* close button */
+.notif-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+/* appear */
+@keyframes notifIn {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Dashboard improvements */
+.profile-card {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(229,57,53,0.18), rgba(0,0,0,0.12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: var(--accent-yellow);
+  font-weight: 700;
+  border: 2px solid rgba(255,255,255,0.04);
+}
+
+/* Stats cards */
+.stat-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  align-items: center; /* centra verticalmente */
+  border-radius: 8px;
+  min-height: 84px;
+}
+
+/* contenedor del icono: tamaño fijo y centrado absoluto */
+.stat-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+}
+
+/* icono en sí: eliminar offsets de línea y asegurar centrado */
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;      /* tamaño del icono */
+  width: 56px;
+  height: 56px;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  color: var(--accent-red);
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+}
+
+/* asegurar la columna derecha expanda correctamente */
+.stat-right {
+  flex: 1 1 auto;
+  min-width: 0; /* evita overflow de texto */
+}
+
+/* Aclarar color del correo y textos pequeños en la tarjeta de perfil */
+.profile-card .small,
+.profile-card .small.text-muted {
+  color: #dcdcdc; /* más claro que var(--muted) para mejor contraste */
+}
+
+/* Estilos para modal móvil flotante */
+.mobile-nav-modal {
+  position: fixed;
+  top: 72px; /* justo debajo del navbar */
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  width: calc(100% - 36px);
+  max-width: 420px;
+  border-radius: 12px;
+  padding: 0;
+  background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(10,10,10,0.9));
+  box-shadow: 0 18px 48px rgba(0,0,0,0.6);
+  z-index: 1405;
+  overflow: hidden;
+  animation: mobileNavIn .18s cubic-bezier(.2,.9,.2,1) forwards;
+}
+
+/* header */
+.mobile-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+/* body */
+.mobile-nav-body {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+/* nav item */
+.mobile-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-light);
+  border: none;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.mobile-nav-item i {
+  color: var(--accent-red);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* hover / active */
+.mobile-nav-item:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* separator */
+.mobile-nav-sep {
+  border: none;
+  height: 1px;
+  background: rgba(255,255,255,0.03);
+  margin: 6px 0;
+}
+
+/* responsive: en pantallas grandes reducir el tamaño y centrarlo */
+@media (min-width: 880px) {
+  .mobile-nav-modal {
+    max-width: 360px;
+    top: 80px;
+  }
+}
+
+@keyframes mobileNavIn {
+  from { transform: translateX(-50%) translateY(-16px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* Topic / posts styles */
+.topic-badge {
+  background: linear-gradient(90deg, rgba(30,144,255,0.12), rgba(30,144,255,0.04));
+  color: #eaf6ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.post-card {
+  border-radius: 8px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* floating post button (bottom-right) */
+.fab-post {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1400;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  cursor: pointer;
+  border: none;
+  font-size: 20px;
+}
+
+/* reply indentation */
+.post-reply {
+  margin-left: 18px;
+  margin-top: 8px;
+}
+
+/* Estética mejorada para PostModal */
+.post-modal {
+  max-width: 640px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(18,18,18,0.98), rgba(10,10,10,0.95));
+  padding: 0;
+  box-shadow: 0 18px 54px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+.post-modal .rf-modal-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.post-modal .rf-modal-body {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+}
+
+.post-modal .form-label {
+  font-weight: 600;
+  color: #eaeaea;
+}
+
+.post-modal .form-control {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.035);
+  color: #f3f3f3;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.post-modal .form-control:focus {
+  outline: none;
+  box-shadow: 0 6px 22px rgba(30,144,255,0.08);
+  border-color: rgba(30,144,255,0.4);
+}
+
+.post-modal .rf-modal-footer {
+  padding: 12px 16px;
+  display:flex;
+  gap:8px;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255,255,255,0.02);
+  background: rgba(0,0,0,0.02);
+}
+
+/* errores inline */
+.post-modal .text-danger.small {
+  margin-top:6px;
+  margin-bottom:0;
+}
+
+/* Asegurar modales visibles sobre otros elementos */
+.rf-modal-backdrop {
+  z-index: 2000 !important;
+}
+
+.rf-modal {
+  z-index: 2001 !important;
+}
+
+/* Si el FAB tapa el modal en móviles, bajar su z-index cuando modal abierto (opcional) */
+
+/* Topic / posts — estética y responsive */
+.topic-section { padding-bottom: 72px; }
+
+/* Make card text white and subtext lighter white */
+.topic-section .card-custom,
+.topic-section .forum-category {
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.topic-section .small.text-muted,
+.topic-section .topic-muted,
+.topic-section .post-subdesc,
+.topic-section .post-date {
+  color: rgba(255,255,255,0.65) !important;
+}
+
+/* Headings */
+.topic-section .topic-title {
+  color: #fff;
+  margin-bottom: 6px;
+}
+.topic-section .topic-desc {
+  color: rgba(255,255,255,0.78);
+}
+
+/* Post content */
+.topic-section .post-title { color: #fff; margin-bottom:4px; }
+.topic-section .post-message { color: #f7f7f7; margin-top:6px; }
+.topic-section .reply-message { color: #f1f1f1; }
+
+/* Buttons: uniform btn-link style (like "Responder") */
+.topic-section .btn-link {
+  color: var(--text-light);
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background .12s, color .12s;
+  font-weight: 600;
+}
+.topic-section .btn-link:hover {
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+}
+
+/* "btn-success-like" kept as link but with accent color */
+.topic-section .btn-success-like {
+  color: var(--accent-red);
+  font-weight: 700;
+}
+
+/* Small reply button */
+.topic-section .btn-sm {
+  padding: 4px 6px;
+}
+
+/* Reply card smaller */
+.topic-section .reply-card {
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* Header actions layout */
+.header-row { gap: 12px; }
+.header-actions { display:flex; gap:8px; align-items:center; }
+
+/* Post row hover */
+.topic-section .post-row:hover {
+  box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+  transform: translateY(-2px);
+  transition: transform .12s, box-shadow .12s;
+}
+
+/* FAB adjustments */
+.fab-post {
+  right: 18px;
+  bottom: 18px;
+  width: 52px;
+  height: 52px;
+  z-index: 2100;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  /* Stack header content */
+  .header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header-actions { width: 100%; display:flex; justify-content:flex-start; gap:8px; flex-wrap:wrap; }
+
+  /* Make post content wrap nicely */
+  .post-row { padding: 12px; }
+  .topic-section .post-meta { display:block; margin-bottom:6px; }
+
+  /* Fab higher so it doesn't overlap mobile navbar */
+  .fab-post { bottom: 86px; right: 16px; }
+}
+
+/* Ensure modals appear above FAB and other elements */
+.rf-modal-backdrop { z-index: 2200 !important; }
+.rf-modal { z-index: 2201 !important; }
+
+/* botones exclusivos dentro de topics (sobrescribir solo aquí) */
+.topic-section .header-actions .btn-link {
+  /* acciones principales del topic: "Volver a foros", "Nuevo Post" */
+  background: linear-gradient(180deg, var(--accent-red), #b02a2a);
+  color: #fff;
+  border: 1px solid rgba(0,0,0,0.18);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(229,57,53,0.10);
+}
+.topic-section .header-actions .btn-link:hover {
+  background: linear-gradient(180deg, #d84b4b, #9d2525);
+  transform: translateY(-1px);
+}
+
+/* botón "Responder" dentro de cada post: estilo más sutil, amarillo */
+.topic-section .post-row .btn-link {
+  color: var(--accent-yellow);
+  background: rgba(255,204,0,0.04);
+  border: 1px solid rgba(255,204,0,0.10);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.topic-section .post-row .btn-link:hover {
+  background: rgba(255,204,0,0.08);
+  color: #fff;
+}
+
+/* versión pequeña del link (respuestas rápidas) */
+.topic-section .post-row .btn-link.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.9rem;
+}
+
+/* botón "Crear primer post" - positivo */
+.topic-section .btn-success-like {
+  background: linear-gradient(180deg, #2dbb6a, #22a85a);
+  color: #fff;
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.topic-section .btn-success-like:hover {
+  transform: translateY(-1px);
+  opacity: 0.98;
+}
+
+/* FAB dentro del topic (mantener contraste) */
+.topic-section .fab-post {
+  background: linear-gradient(180deg, var(--accent-red), #b02a2a);
+  box-shadow: 0 18px 40px rgba(176,42,42,0.16);
+  border: 2px solid rgba(0,0,0,0.18);
+}
+
+/* responsive: reducir paddings en móviles para que no rompan el layout */
+@media (max-width: 480px) {
+  .topic-section .header-actions .btn-link,
+  .topic-section .btn-success-like {
+    padding: 8px 10px;
+    font-size: 0.95rem;
+  }
+
+  .topic-section .post-row .btn-link {
+    padding: 6px 8px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Recent activity styles (Hero) */
+.recent-activity {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+.activity-list .activity-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s, transform .12s;
+}
+.activity-list .activity-item + .activity-item {
+  margin-top: 8px;
+}
+.activity-list .activity-item:hover {
+  background: rgba(255,255,255,0.02);
+  transform: translateY(-2px);
+}
+
+.activity-avatar {
+  min-width:40px;
+  min-height:40px;
+  width:40px;
+  height:40px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: linear-gradient(180deg, rgba(35,139,230,0.14), rgba(35,139,230,0.06));
+  color: #fff;
+  font-weight:700;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+.activity-body { min-width:0; }
+.activity-title { color:#fff; font-weight:700; font-size:14px; line-height:1.1; }
+.activity-meta { color: rgba(255,255,255,0.66); font-size:12px; margin-top:4px; }
+.activity-time { color: rgba(255,255,255,0.5); }
+
+/* Hero extra panel */
+.hero-extra .card-custom { height:100%; display:flex; flex-direction:column; justify-content:space-between; }
+
+/* layout adjustments */
+.hero-activity-row > div { align-items: start; }
+
+/* responsive: collapse columns to single column on small screens */
+@media (max-width: 880px) {
+  .hero-activity-row > div {
+    grid-template-columns: 1fr !important;
+  }
+  .hero-activity-row .recent-activity {
+    max-width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* keep spacing consistent with existing hero */
+@media (max-width: 560px) {
+  .activity-avatar { width:36px; height:36px; min-width:36px; min-height:36px; font-size:13px; }
+  .activity-title { font-size:13px; }
+  .activity-meta { font-size:11px; }
+}
