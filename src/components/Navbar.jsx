@@ -1,79 +1,156 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, onShowRegister, onShowUserMenu, onShowMobileMenu }) => {
+const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, onShowRegister }) => {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileMenu]);
+
+  const toggleProfileMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowProfileMenu(!showProfileMenu);
+  };
+
+  const handleMenuClick = (action) => {
+    setShowProfileMenu(false);
+    setMobileMenuOpen(false); // Cerrar menú móvil también
+    if (action) action();
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleNavClick = (destination) => {
+    setMobileMenuOpen(false);
+    onNavigate(destination);
+  };
+
   return (
-    <nav className="navbar navbar-expand-lg navbar-custom fixed-top">
-      <div className="container-fluid">
-        <a className="navbar-brand" href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}>
+    <nav className="navbar navbar-expand-lg navbar-custom">
+      <div className="container">
+        <button className="navbar-brand btn btn-link p-0 border-0" onClick={() => handleNavClick('home')}>
           <i className="fas fa-fist-raised" aria-hidden="true"></i>
           <span>StriveForum</span>
-        </a>
-
-        <button
-          className="navbar-toggler"
-          type="button"
-          aria-label="Abrir navegación"
-          onClick={(e) => { e.preventDefault(); if (onShowMobileMenu) onShowMobileMenu(); }}
-        >
-          <span className="navbar-toggler-icon" />
         </button>
 
-        <div className="collapse navbar-collapse" id="navbarNav">
+        <button
+          className={`navbar-toggler ${mobileMenuOpen ? 'active' : ''}`}
+          type="button"
+          onClick={toggleMobileMenu}
+          aria-controls="navbarNav"
+          aria-expanded={mobileMenuOpen}
+          aria-label="Toggle navigation"
+        >
+          <span className="navbar-toggler-icon">
+            <i className={`fas ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
+          </span>
+        </button>
+
+        <div className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`} id="navbarNav">
           <ul className="navbar-nav me-auto">
             <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e)=>{e.preventDefault(); onNavigate('home');}}>
-                <i className="fas fa-home me-2" aria-hidden="true"></i> Inicio
-              </a>
+              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('home')}>
+                <i className="fas fa-home" aria-hidden="true"></i> Inicio
+              </button>
             </li>
 
             <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e)=>{e.preventDefault(); onNavigate('forums');}}>
-                <i className="fas fa-comments me-2" aria-hidden="true"></i> Foros
-              </a>
+              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('forums')}>
+                <i className="fas fa-comments" aria-hidden="true"></i> Foros
+              </button>
             </li>
 
             <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e)=>{e.preventDefault(); onNavigate('matchmaking');}}>
-                <i className="fas fa-gamepad me-2" aria-hidden="true"></i> Matchmaking
-              </a>
-            </li>
-
-            <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e)=>{e.preventDefault(); onNavigate('learning');}}>
-                <i className="fas fa-graduation-cap me-2" aria-hidden="true"></i> Aprender
-              </a>
+              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('learning')}>
+                <i className="fas fa-graduation-cap" aria-hidden="true"></i> Aprender
+              </button>
             </li>
 
             {isAuthenticated && (
               <li className="nav-item">
-                <a className="nav-link" href="#" onClick={(e)=>{e.preventDefault(); onNavigate('dashboard');}}>
-                  <i className="fas fa-tachometer-alt me-2" aria-hidden="true"></i> Dashboard
-                </a>
-              </li>
-            )}
-          </ul>
-
-          <ul className="navbar-nav">
-            {!isAuthenticated ? (
-              <li className="nav-item d-flex gap-2">
-                <button className="btn btn-secondary me-2" onClick={onShowLogin}><i className="fas fa-sign-in-alt me-1" aria-hidden="true"></i> Iniciar Sesión</button>
-                <button className="btn btn-primary" onClick={onShowRegister}><i className="fas fa-user-plus me-1" aria-hidden="true"></i> Registrarse</button>
-              </li>
-            ) : (
-              <li className="nav-item d-flex align-items-center gap-2">
-                <button
-                  className="btn btn-link nav-link"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    onShowUserMenu(rect);
-                  }}
-                >
-                  <i className="fas fa-user me-1" aria-hidden="true"></i> {username}
+                <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('dashboard')}>
+                  <i className="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
                 </button>
               </li>
             )}
           </ul>
+
+          <div className="navbar-user">
+            {!isAuthenticated ? (
+              <div style={{display: 'flex', gap: 8}}>
+                <button className="btn btn-secondary" onClick={() => { setMobileMenuOpen(false); onShowLogin(); }}>
+                  <i className="fas fa-sign-in-alt" aria-hidden="true"></i> Iniciar Sesión
+                </button>
+                <button className="btn btn-primary" onClick={() => { setMobileMenuOpen(false); onShowRegister(); }}>
+                  <i className="fas fa-user-plus" aria-hidden="true"></i> Registrarse
+                </button>
+              </div>
+            ) : (
+              <div className="profile-dropdown" ref={dropdownRef}>
+                <div 
+                  className={`user-info ${showProfileMenu ? 'active' : ''}`} 
+                  onClick={toggleProfileMenu}
+                >
+                  <div className="user-avatar">{username ? username[0].toUpperCase() : 'U'}</div>
+                  <span>{username}</span>
+                  <i className="fas fa-chevron-down dropdown-arrow"></i>
+                </div>
+
+                {showProfileMenu && (
+                  <div className="profile-menu show">
+                    <div className="profile-menu-header">
+                      <div className="user-name">{username}</div>
+                      <div className="user-email">Miembro activo</div>
+                    </div>
+
+                    <button 
+                      className="profile-menu-item" 
+                      onClick={() => handleMenuClick(() => onNavigate('forums'))}
+                    >
+                      <i className="fas fa-comments"></i>
+                      Foros
+                    </button>
+
+                    <button 
+                      className="profile-menu-item" 
+                      onClick={() => handleMenuClick(() => onNavigate('learning'))}
+                    >
+                      <i className="fas fa-graduation-cap"></i>
+                      Aprender
+                    </button>
+
+                    <div className="profile-menu-divider"></div>
+
+                    <button 
+                      className="profile-menu-item danger" 
+                      onClick={() => handleMenuClick(onLogout)}
+                    >
+                      <i className="fas fa-sign-out-alt"></i>
+                      Cerrar Sesión
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

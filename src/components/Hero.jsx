@@ -74,7 +74,7 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
                 <p className="small text-muted">Guías rápidas, eventos y partidas recomendadas. Haz click para ir al foro correspondiente.</p>
                 <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8}}>
                   <button className="btn btn-secondary" onClick={() => onNavigate('learning')}>Ver guías</button>
-                  <button className="btn btn-primary" onClick={() => onNavigate('matchmaking')}>Buscar compañeros</button>
+                  <button className="btn btn-primary" onClick={() => onNavigate('forums')}>Únete al foro</button>
                 </div>
               </div>
             </div>

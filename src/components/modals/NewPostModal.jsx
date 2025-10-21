@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
+  const getCurrentUser = useCallback(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
+      return session.user || null;
+    } catch {
+      return null;
+    }
+  }, []);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
@@ -31,6 +39,17 @@ const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
 
   const handleSubmit = (ev) => {
     ev.preventDefault();
+    
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para crear un post'
+      });
+      return;
+    }
+    
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) {

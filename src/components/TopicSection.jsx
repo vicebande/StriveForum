@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import PostModal from './modals/PostModal';
 import CreateTopicModal from './modals/CreateTopicModal';
 import PostThreadModal from './modals/PostThreadModal';
-import NewPostModal from './modals/NewPostModal'; // <-- nuevo
+import NewPostModal from './modals/NewPostModal';
 
 const fakeTopics = [
   {
@@ -10,59 +10,291 @@ const fakeTopics = [
     title: 'Guías y combos',
     description: 'Mejores combos para principiantes y tutoriales paso a paso.',
     author: 'Admin',
-    createdAt: Date.now() - 1000*60*60*24*10
-  },
-  {
-    id: 't2',
-    title: 'Matchmaking y rankeds',
-    description: 'Encuentra compañeros y organiza partidas competitivas.',
-    author: 'PlayerOne',
-    createdAt: Date.now() - 1000*60*60*24*3
+    createdAt: Date.now() - 1000*60*60*24*10,
+    category: 'Guías',
+    upvotes: 142
   }
 ];
 
 const fakePosts = {
   t1: [
-    { id: 'p1', author: 'UserA', message: '¿Alguien tiene un combo simple para Ky?', createdAt: Date.now()-1000*60*60*24*2, replies: [
-      { id: 'r1', author: 'Coach', message: 'Prueba: LP → MP → special', createdAt: Date.now()-1000*60*60*24 }
-    ] },
-    { id: 'p2', author: 'UserB', message: '¿Qué botones usar para starter combos?', createdAt: Date.now()-1000*60*60*24*5, replies: [] }
+    { 
+      id: 'p1', 
+      author: 'UserA', 
+      authorAvatar: 'U',
+      title: 'Mejores combos para Ky Kiske',
+      message: '¿Alguien tiene un combo simple para Ky que sea efectivo en ranked? Necesito algo que no requiera timing perfecto.', 
+      createdAt: Date.now()-1000*60*60*24*2, 
+      replies: [
+        { 
+          id: 'r1', 
+          author: 'FightingCoach', 
+          authorAvatar: 'F', 
+          content: 'Prueba este combo básico pero efectivo: LP → MP → 236P (Stun Edge). Es perfecto para beginners y funciona contra la mayoría de personajes.', 
+          createdAt: Date.now()-1000*60*60*24,
+          likes: 8
+        },
+        { 
+          id: 'r2', 
+          author: 'KyMain', 
+          authorAvatar: 'K', 
+          content: '¡Ese combo está bien! También puedes probar LP → 214K (Vapor Thrust) para más daño. Es un poco más difícil pero vale la pena aprenderlo.', 
+          createdAt: Date.now()-1000*60*60*12,
+          likes: 5
+        },
+        { 
+          id: 'r3', 
+          author: 'NewPlayer', 
+          authorAvatar: 'N', 
+          content: 'Gracias por los consejos! ¿Hay algún combo que funcione bien en counter hit?', 
+          createdAt: Date.now()-1000*60*60*6,
+          likes: 2,
+          parentId: 'r1'
+        }
+      ] 
+    },
+    { 
+      id: 'p2', 
+      author: 'UserB', 
+      authorAvatar: 'B',
+      title: 'Dudas sobre starter combos',
+      message: '¿Qué botones usar para starter combos con personajes rápidos? No logro conectar bien los links. Juego principalmente Chipp y I-No.', 
+      createdAt: Date.now()-1000*60*60*24*5, 
+      replies: [
+        { 
+          id: 'r10', 
+          author: 'ChippMaster', 
+          authorAvatar: 'C', 
+          content: 'Para Chipp usa 2P como starter. Es su normal más rápido (5 frames) y linkea fácil a 2K → 214K. Con I-No prueba c.S → f.S → 236H.', 
+          createdAt: Date.now()-1000*60*60*24*4,
+          likes: 15
+        },
+        { 
+          id: 'r11', 
+          author: 'INoQueen', 
+          authorAvatar: 'I', 
+          content: 'El timing de I-No es más strict. Practica el link c.S → f.S en training mode hasta que salga consistente. Después añade el special.', 
+          createdAt: Date.now()-1000*60*60*24*3,
+          likes: 9
+        }
+      ]
+    },
+    { 
+      id: 'p4', 
+      author: 'FGCNewbie', 
+      authorAvatar: 'F',
+      title: '¿Mejores controladores para Guilty Gear?',
+      message: 'Soy nuevo en fighting games. ¿Recomiendan pad o stick? ¿Qué marcas son buenas para empezar sin gastar mucho?', 
+      createdAt: Date.now()-1000*60*60*18, 
+      replies: [
+        { 
+          id: 'r12', 
+          author: 'StickVeteran', 
+          authorAvatar: 'S', 
+          content: 'Para empezar, un pad está perfecto. El DualSense de PS5 o el Xbox controller son excelentes. Los sticks son caros y requieren práctica.', 
+          createdAt: Date.now()-1000*60*60*16,
+          likes: 22
+        },
+        { 
+          id: 'r13', 
+          author: 'BudgetFighter', 
+          authorAvatar: 'B', 
+          content: 'Si quieres probar stick, el Mayflash F300 es bueno y barato (~$60). Puedes upgradear las partes después si te gusta.', 
+          createdAt: Date.now()-1000*60*60*12,
+          likes: 18
+        },
+        { 
+          id: 'r14', 
+          author: 'HitBoxUser', 
+          authorAvatar: 'H', 
+          content: 'También considera el Hitbox si tienes experiencia con teclado. Es muy preciso para charge characters y motion inputs.', 
+          createdAt: Date.now()-1000*60*60*8,
+          likes: 11
+        }
+      ]
+    }
   ],
   t2: [
-    { id: 'p3', author: 'MatchHunter', message: 'Busco team para rankeds nocturnos', createdAt: Date.now()-1000*60*60*6, replies: [] }
+    { 
+      id: 'p3', 
+      author: 'MatchHunter', 
+      authorAvatar: 'M',
+      title: 'Busco equipo para rankeds',
+      message: 'Busco team para rankeds nocturnos. Nivel intermedio, juego entre 10pm-2am horario CST. Estoy en Gold rank y quiero subir a Platinum.', 
+      createdAt: Date.now()-1000*60*60*6, 
+      replies: [
+        { 
+          id: 'r7', 
+          author: 'NightOwl', 
+          authorAvatar: 'N', 
+          content: '¡Perfecto! Yo también juego en esos horarios. Estoy en Gold III y main Sol Badguy. Mi Discord es NightOwl#1234', 
+          createdAt: Date.now()-1000*60*60*4,
+          likes: 6
+        },
+        { 
+          id: 'r8', 
+          author: 'PlatiMay', 
+          authorAvatar: 'P', 
+          content: 'Los puedo ayudar con estrategias. Llegué a Celestial la temporada pasada. Para subir a Platinum necesitan trabajar en neutral game.', 
+          createdAt: Date.now()-1000*60*60*2,
+          likes: 12
+        },
+        { 
+          id: 'r9', 
+          author: 'CSTeamLead', 
+          authorAvatar: 'C', 
+          content: 'Tengo un server de Discord para players de CST timezone. ¡Únanse! discord.gg/cst-fighters', 
+          createdAt: Date.now()-1000*60*60*1,
+          likes: 8
+        }
+      ]
+    },
+    { 
+      id: 'p5', 
+      author: 'TourneyOrganizer', 
+      authorAvatar: 'T',
+      title: 'Torneo local este sábado - ¡Únanse!',
+      message: 'Organizamos un torneo local de Guilty Gear Strive este sábado 2pm. Entry fee $10, prizes al top 3. Lugar: GameCenter Plaza Norte.', 
+      createdAt: Date.now()-1000*60*60*2, 
+      replies: [
+        { 
+          id: 'r15', 
+          author: 'CompetitivePlayer', 
+          authorAvatar: 'C', 
+          content: '¡Cuenta conmigo! ¿Hay stream? Me gusta ver los matches después para estudiar.', 
+          createdAt: Date.now()-1000*60*60*1,
+          likes: 4
+        },
+        { 
+          id: 'r16', 
+          author: 'LocalSceneSupporter', 
+          authorAvatar: 'L', 
+          content: 'Excelente iniciativa! La escena local necesita más eventos así. ¿Habrá bracket para beginners?', 
+          createdAt: Date.now()-1000*60*45,
+          likes: 7
+        }
+      ]
+    }
   ]
 };
 
-const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
-  const [topics, setTopics] = useState(fakeTopics);
-  const [postsMap, setPostsMap] = useState(fakePosts);
+const TOPICS_KEY = 'sf_topics';
+const POSTS_KEY = 'sf_postsMap';
+const ACTIVE_THREAD_KEY = 'sf_active_thread';
 
-  // modal states
+const safeParse = (raw, fallback) => {
+  try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
+};
+
+const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
+  const getCurrentUser = useCallback(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
+      return session.user || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const [topics, setTopics] = useState(() => {
+    const raw = localStorage.getItem(TOPICS_KEY);
+    return safeParse(raw, fakeTopics);
+  });
+
+  const [postsMap, setPostsMap] = useState(() => {
+    const raw = localStorage.getItem(POSTS_KEY);
+    return safeParse(raw, fakePosts);
+  });
+
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
-
   const [showCreateModal, setShowCreateModal] = useState(false);
-
   const [showThreadModal, setShowThreadModal] = useState(false);
   const [activeThreadPost, setActiveThreadPost] = useState(null);
-
-  const [showNewPostModal, setShowNewPostModal] = useState(false); // <-- modal para crear post dentro de un topic
+  const [showNewPostModal, setShowNewPostModal] = useState(false);
 
   const topic = useMemo(() => topics.find(t => t.id === currentTopicId), [topics, currentTopicId]);
 
-  const openCreateTopic = () => {
-    setShowCreateModal(true);
+  useEffect(() => {
+    try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch (err) { /* ignore */ }
+  }, [topics]);
+
+  useEffect(() => {
+    try { localStorage.setItem(POSTS_KEY, JSON.stringify(postsMap)); } catch (err) { /* ignore */ }
+  }, [postsMap]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_THREAD_KEY);
+      const saved = safeParse(raw, null);
+      if (!saved) return;
+      if (saved.topicId && saved.postId && saved.topicId === currentTopicId) {
+        const posts = postsMap[saved.topicId] || [];
+        const found = posts.find(p => p.id === saved.postId);
+        if (found) {
+          setActiveThreadPost(found);
+          setShowThreadModal(true);
+        }
+      }
+    } catch (err) { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTopicId]);
+
+  useEffect(() => {
+    try {
+      if (showThreadModal && activeThreadPost) {
+        localStorage.setItem(ACTIVE_THREAD_KEY, JSON.stringify({ topicId: currentTopicId, postId: activeThreadPost.id }));
+      } else {
+        localStorage.removeItem(ACTIVE_THREAD_KEY);
+      }
+    } catch (err) { /* ignore */ }
+  }, [showThreadModal, activeThreadPost, currentTopicId]);
+
+  const timeAgo = (timestamp) => {
+    const diff = Math.floor((Date.now() - timestamp) / 1000);
+    if (diff < 60) return `hace ${diff}s`;
+    if (diff < 3600) return `hace ${Math.floor(diff/60)}m`;
+    if (diff < 86400) return `hace ${Math.floor(diff/3600)}h`;
+    return `hace ${Math.floor(diff/86400)}d`;
   };
 
+  const openCreateTopic = () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para crear un topic'
+      });
+      return;
+    }
+    setShowCreateModal(true);
+  };
   const openReply = (postId = null) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para responder'
+      });
+      return;
+    }
     setReplyTo(postId);
     setShowReplyModal(true);
   };
-
   const openNewPost = () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para crear un post'
+      });
+      return;
+    }
     setShowNewPostModal(true);
   };
-
   const openThread = (post) => {
     setActiveThreadPost(post);
     setShowThreadModal(true);
@@ -70,9 +302,28 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
 
   const handleCreateTopic = ({ title, description, message }) => {
     const id = 't' + (Date.now().toString(36).slice(-6));
-    const newTopic = { id, title, description, author: user?.username || 'Anon', createdAt: Date.now() };
+    const newTopic = { 
+      id, 
+      title, 
+      description, 
+      author: user?.username || 'Anon', 
+      createdAt: Date.now(),
+      category: 'General',
+      upvotes: 0
+    };
     setTopics(t => [newTopic, ...t]);
-    setPostsMap(m => ({ ...m, [id]: [{ id: 'p' + Date.now().toString(36), author: user?.username || 'Anon', message, createdAt: Date.now(), replies: [] }] }));
+    setPostsMap(m => ({ 
+      ...m, 
+      [id]: [{ 
+        id: 'p' + Date.now().toString(36), 
+        author: user?.username || 'Anon',
+        authorAvatar: (user?.username || 'A')[0].toUpperCase(),
+        title: 'Primer post',
+        message, 
+        createdAt: Date.now(), 
+        replies: [] 
+      }] 
+    }));
     setShowCreateModal(false);
     if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
     if (typeof onNavigate === 'function') onNavigate(`topic:${id}`);
@@ -83,26 +334,50 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'No hay topic seleccionado.' });
       return;
     }
+
+    const newReply = { 
+      id: 'r' + Date.now().toString(36), 
+      author: user?.username || 'Anon',
+      authorAvatar: (user?.username || 'A')[0].toUpperCase(),
+      message, 
+      createdAt: Date.now() 
+    };
+
     setPostsMap(prev => {
       const copy = { ...prev };
       if (replyTo) {
         copy[currentTopicId] = (copy[currentTopicId] || []).map(p => {
           if (p.id === replyTo) {
-            return { ...p, replies: [...(p.replies || []), { id: 'r' + Date.now().toString(36), author: user?.username || 'Anon', message, createdAt: Date.now() }] };
+            return { ...p, replies: [...(p.replies || []), newReply] };
           }
           return p;
         });
       } else {
-        const newPost = { id: 'p' + Date.now().toString(36), author: user?.username || 'Anon', message, createdAt: Date.now(), replies: [] };
+        const newPost = { 
+          id: 'p' + Date.now().toString(36), 
+          author: user?.username || 'Anon',
+          authorAvatar: (user?.username || 'A')[0].toUpperCase(),
+          title: '',
+          message, 
+          createdAt: Date.now(), 
+          replies: [] 
+        };
         copy[currentTopicId] = [newPost, ...(copy[currentTopicId] || [])];
       }
       return copy;
     });
+
+    if (showThreadModal && replyTo && activeThreadPost && activeThreadPost.id === replyTo) {
+      setActiveThreadPost(prev => {
+        if (!prev) return prev;
+        return { ...prev, replies: [...(prev.replies || []), newReply] };
+      });
+    }
+
     setShowReplyModal(false);
     if (onNotify) onNotify({ type: 'info', title: 'Publicación creada', message: 'Tu publicación fue añadida.' });
   };
 
-  // nuevo handler para publicar dentro del topic (usa title+description+message)
   const handleNewPostSubmit = ({ title, description, message }) => {
     if (!currentTopicId) {
       if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'No hay topic seleccionado.' });
@@ -114,6 +389,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       const newPost = {
         id: 'p' + Date.now().toString(36),
         author: user?.username || 'Anon',
+        authorAvatar: (user?.username || 'A')[0].toUpperCase(),
         title,
         description,
         message,
@@ -127,7 +403,26 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     if (onNotify) onNotify({ type: 'success', title: 'Publicación creada', message: 'Tu publicación fue añadida.' });
   };
 
-  // renders
+  const handleShare = async (e, post) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title || 'Post',
+          text: post.message,
+          url: window.location.href
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          onNotify && onNotify({ type: 'info', title: 'Compartir', message: 'No se pudo compartir' });
+        }
+      }
+    } else {
+      onNotify && onNotify({ type: 'info', title: 'Copiado', message: 'Link copiado al portapapeles' });
+    }
+  };
+
+  // Vista de lista de topics
   if (!currentTopicId) {
     return (
       <section className="content-section" style={{paddingTop:90}}>
@@ -155,90 +450,148 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
           </div>
         </div>
 
-        <CreateTopicModal show={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTopic} onNotify={onNotify} />
+        <CreateTopicModal show={showCreateModal} onClose={() => setShowCreateModal(false)} onCreateTopic={handleCreateTopic} onNotify={onNotify} />
       </section>
     );
   }
 
   const posts = postsMap[currentTopicId] || [];
 
+  // Vista dentro de un topic (mejorada)
   return (
-    <section className="content-section topic-section" style={{paddingTop:90}}>
+    <section className="topic-section">
       <div className="container">
-        <div className="d-flex justify-content-between align-items-start mb-3 header-row">
-          <div>
-            <h2 className="topic-title">{topic?.title || 'Tema'}</h2>
-            <div className="topic-desc small text-muted">{topic?.description || 'Descripción no disponible.'}</div>
-          </div>
-          <div className="header-actions">
-            <button className="btn btn-link me-2" onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}>Volver a foros</button>
-            <button className="btn btn-link" onClick={openNewPost}>Nuevo Post</button> {/* abre NewPostModal */}
-          </div>
-        </div>
-
-        <div>
-          {posts.length === 0 && (
-            <div className="card-custom p-3 mb-3">
-              <div className="d-flex justify-content-between align-items-center post-empty">
-                <div>
-                  <strong className="text-white">No hay mensajes todavía.</strong>
-                  <div className="small topic-muted">Sé el primero en crear una publicación en este tema.</div>
-                </div>
-                <div>
-                  <button className="btn btn-link btn-success-like" onClick={openNewPost}>Crear primer post</button>
+        {/* Header del topic mejorado */}
+        <div className="topic-header card-custom">
+          <div className="topic-header-content">
+            <div className="topic-header-left">
+              <button 
+                className="btn-back" 
+                onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                aria-label="Volver"
+              >
+                <i className="fas fa-arrow-left"></i>
+              </button>
+              <div className="topic-info">
+                <span className="topic-category">{topic?.category || 'General'}</span>
+                <h2 className="topic-title">{topic?.title || 'Tema'}</h2>
+                <p className="topic-description">{topic?.description || 'Descripción no disponible.'}</p>
+                <div className="topic-meta">
+                  <span className="topic-author">
+                    <span className="author-avatar">{(topic?.author || 'A')[0]}</span>
+                    u/{topic?.author || 'Anon'}
+                  </span>
+                  <span className="topic-stats">
+                    <i className="fas fa-fire"></i> {topic?.upvotes || 0} upvotes
+                  </span>
+                  <span className="topic-stats">
+                    <i className="fas fa-comment"></i> {posts.length} posts
+                  </span>
                 </div>
               </div>
             </div>
-          )}
+            <div className="topic-header-actions">
+              <button className="btn btn-primary" onClick={openNewPost}>
+                <i className="fas fa-plus"></i> Nuevo Post
+              </button>
+            </div>
+          </div>
+        </div>
 
-          {posts.map(p => (
-            <div key={p.id} className="card-custom p-3 mb-3 post-row" style={{cursor:'pointer'}} onClick={() => openThread(p)}>
-              <div className="d-flex justify-content-between">
-                <div style={{minWidth:0}}>
-                  <div className="post-meta">
-                    <strong className="post-author">{p.author}</strong>{' '}
-                    <span className="post-date small text-muted">• {new Date(p.createdAt).toLocaleString()}</span>
-                  </div>
-
-                  <div style={{marginTop:8, wordBreak:'break-word'}} className="post-content">
-                    {p.title ? (
-                      <>
-                        <div className="post-title"><strong>{p.title}</strong></div>
-                        <div className="post-subdesc small text-muted">{p.description}</div>
-                      </>
-                    ) : null}
-                    <div className="post-message">{p.message}</div>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <button className="btn btn-link btn-sm" onClick={(e) => { e.stopPropagation(); openReply(p.id); }}>Responder</button>
-                </div>
-              </div>
-
-              {p.replies && p.replies.length > 0 && (
-                <div style={{marginTop:12, marginLeft:18}}>
-                  {p.replies.map(r => (
-                    <div key={r.id} className="card-custom p-2 mb-2 reply-card">
-                      <div className="small"><strong className="reply-author">{r.author}</strong> <span className="small post-date">• {new Date(r.createdAt).toLocaleString()}</span></div>
-                      <div style={{marginTop:6}} className="reply-message">{r.message}</div>
+        {/* Lista de posts mejorada */}
+        {posts.length === 0 ? (
+          <div className="empty-state card-custom">
+            <i className="fas fa-comments empty-icon"></i>
+            <h4>No hay posts todavía</h4>
+            <p className="text-muted">Sé el primero en compartir tu opinión</p>
+            <button className="btn btn-primary" onClick={openNewPost}>
+              <i className="fas fa-plus"></i> Crear primer post
+            </button>
+          </div>
+        ) : (
+          <div className="posts-list">
+            {posts.map(post => (
+              <div key={post.id} className="post-card card-custom" onClick={() => openThread(post)}>
+                <div className="post-header">
+                  <div className="post-author-info">
+                    <span className="author-avatar">{post.authorAvatar || post.author[0]}</span>
+                    <div className="author-details">
+                      <span className="author-name">u/{post.author}</span>
+                      <span className="post-time">{timeAgo(post.createdAt)}</span>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                
+                <div className="post-content">
+                  {post.title && <h3 className="post-title">{post.title}</h3>}
+                  <p className="post-message">{post.message}</p>
+                </div>
+
+                <div className="post-footer">
+                  <div className="post-stats">
+                    <span className="stat-item">
+                      <i className="fas fa-comment"></i>
+                      {post.replies?.length || 0} respuestas
+                    </span>
+                  </div>
+                  <div className="post-actions">
+                    <button 
+                      className="action-btn reply" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openReply(post.id);
+                      }}
+                    >
+                      <i className="fas fa-reply"></i> Responder
+                    </button>
+                    <button 
+                      className="action-btn share" 
+                      onClick={(e) => handleShare(e, post)}
+                    >
+                      <i className="fas fa-share-alt"></i> Compartir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* FAB para crear post */}
       <button className="fab-post" title="Nuevo post" onClick={openNewPost} aria-label="Nuevo post">
         <i className="fas fa-plus" />
       </button>
 
-      {/* modales */}
-      <PostModal show={showReplyModal} mode="reply" onClose={() => setShowReplyModal(false)} onSubmit={({ message }) => handleReplySubmit({ message })} onNotify={onNotify} />
-      <NewPostModal show={showNewPostModal} onClose={() => setShowNewPostModal(false)} onSubmit={handleNewPostSubmit} onNotify={onNotify} />
-      <CreateTopicModal show={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTopic} onNotify={onNotify} />
-      <PostThreadModal show={showThreadModal} onClose={() => setShowThreadModal(false)} post={activeThreadPost} onReply={(postId) => { setShowThreadModal(false); setTimeout(()=> openReply(postId), 120); }} />
+      {/* Modales */}
+      <PostThreadModal 
+        show={showReplyModal} 
+        onClose={() => setShowReplyModal(false)} 
+        onReply={(content) => handleReplySubmit({ message: content })} 
+        replyingTo={replyTo ? posts.find(p => p.id === replyTo) || { 
+          author: 'Usuario', 
+          content: 'Post no encontrado', 
+          parentId: null 
+        } : null}
+        onNotify={onNotify} 
+      />
+      <NewPostModal 
+        show={showNewPostModal} 
+        onClose={() => setShowNewPostModal(false)} 
+        onSubmit={handleNewPostSubmit} 
+        onNotify={onNotify} 
+      />
+      <CreateTopicModal 
+        show={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+        onCreateTopic={handleCreateTopic} 
+        onNotify={onNotify} 
+      />
+      <PostModal
+        show={showThreadModal}
+        onClose={() => { setShowThreadModal(false); setActiveThreadPost(null); }}
+        post={activeThreadPost}
+      />
     </section>
   );
 };

@@ -8,7 +8,7 @@ import React from 'react';
 const RecentActivity = ({ onNavigate, items }) => {
   const sample = items || [
     { id: 'a1', type: 'post', title: 'Nuevo post: Guías avanzadas', meta: 'en Guías y combos', time: Date.now() - 1000*60*30 },
-    { id: 'a2', type: 'reply', title: 'Respuesta a tu publicación', meta: 'en Matchmaking', time: Date.now() - 1000*60*60*3 },
+    { id: 'a2', type: 'reply', title: 'Respuesta a tu publicación', meta: 'en Foros', time: Date.now() - 1000*60*60*3 },
     { id: 'a3', type: 'topic', title: 'Tema creado: Torneos locales', meta: 'por Admin', time: Date.now() - 1000*60*60*24 },
   ];
 
