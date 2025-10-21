@@ -4,10 +4,12 @@ import Hero from './components/Hero';
 import DashboardSection from './components/DashboardSection';
 import ForumsSection from './components/ForumsSection';
 import LearningSection from './components/LearningSection';
+import AdminPanel from './components/AdminPanel';
 import LoginModal from './components/modals/LoginModal';
 import RegisterModal from './components/modals/RegisterModal';
 import Notifications from './components/notifications/Notifications';
 import TopicSection from './components/TopicSection';
+import { isUserBlocked } from './utils/roleUtils';
 
 // ===== MOCK AUTH SERVICE (preparado para API real) =====
 const AuthService = {
@@ -206,58 +208,6 @@ const App = () => {
     setNotifications(n => n.filter(x => x.id !== id));
   }, []);
 
-  // ===== NAVIGATION =====
-  
-  const showSection = useCallback((section) => {
-    try {
-      setShowLogin(false);
-      setShowRegister(false);
-
-      // Validar el parámetro de sección
-      if (!section || typeof section !== 'string') {
-        console.error('Invalid section parameter:', section);
-        setCurrentSection('home');
-        return;
-      }
-
-      // Proteger rutas que requieren autenticación
-      if (section === 'dashboard' && !auth.isAuthenticated) {
-        setShowLogin(true);
-        addNotification({
-          type: 'warning',
-          title: 'Acceso restringido',
-          message: 'Debes iniciar sesión para acceder al Dashboard'
-        });
-        return;
-      }
-      
-      // Validar formato de topic
-      if (section.startsWith('topic:')) {
-        const topicId = section.split(':')[1];
-        if (!topicId || topicId.trim() === '') {
-          console.error('Invalid topic ID:', topicId);
-          setCurrentSection('forums');
-          addNotification({
-            type: 'error',
-            title: 'Error de navegación',
-            message: 'ID de topic inválido'
-          });
-          return;
-        }
-      }
-      
-      setCurrentSection(section);
-    } catch (error) {
-      console.error('Error in showSection:', error);
-      setCurrentSection('home');
-      addNotification({
-        type: 'error',
-        title: 'Error de navegación',
-        message: 'Ha ocurrido un error. Regresando al inicio.'
-      });
-    }
-  }, [auth.isAuthenticated, addNotification]);
-
   // ===== AUTH HANDLERS =====
   
   const handleLogout = useCallback(async () => {
@@ -291,6 +241,70 @@ const App = () => {
     }
   }, [addNotification]);
 
+  // ===== NAVIGATION =====
+  
+  const showSection = useCallback((section) => {
+    try {
+      setShowLogin(false);
+      setShowRegister(false);
+
+      // Validar el parámetro de sección
+      if (!section || typeof section !== 'string') {
+        console.error('Invalid section parameter:', section);
+        setCurrentSection('home');
+        return;
+      }
+
+      // Proteger rutas que requieren autenticación
+      if ((section === 'dashboard' || section === 'admin') && !auth.isAuthenticated) {
+        setShowLogin(true);
+        addNotification({
+          type: 'warning',
+          title: 'Acceso restringido',
+          message: 'Debes iniciar sesión para acceder a esta sección'
+        });
+        return;
+      }
+
+      // Verificar si el usuario está bloqueado al intentar navegar
+      if (auth.isAuthenticated && auth.user && isUserBlocked(auth.user.username)) {
+        // Cerrar sesión automáticamente si está bloqueado
+        handleLogout();
+        addNotification({
+          type: 'error',
+          title: 'Cuenta suspendida',
+          message: 'Tu cuenta ha sido suspendida. Has sido desconectado automáticamente.'
+        });
+        return;
+      }
+      
+      // Validar formato de topic
+      if (section.startsWith('topic:')) {
+        const topicId = section.split(':')[1];
+        if (!topicId || topicId.trim() === '') {
+          console.error('Invalid topic ID:', topicId);
+          setCurrentSection('forums');
+          addNotification({
+            type: 'error',
+            title: 'Error de navegación',
+            message: 'ID de topic inválido'
+          });
+          return;
+        }
+      }
+      
+      setCurrentSection(section);
+    } catch (error) {
+      console.error('Error in showSection:', error);
+      setCurrentSection('home');
+      addNotification({
+        type: 'error',
+        title: 'Error de navegación',
+        message: 'Ha ocurrido un error. Regresando al inicio.'
+      });
+    }
+  }, [auth.isAuthenticated, auth.user, addNotification, handleLogout]);
+
   const handleLogin = useCallback(async (credentials) => {
     setIsLoading(true);
     
@@ -298,6 +312,17 @@ const App = () => {
       const response = await AuthService.login(credentials);
       
       if (response.success) {
+        // Verificar si el usuario está bloqueado
+        if (isUserBlocked(response.user.username)) {
+          addNotification({
+            type: 'error',
+            title: 'Cuenta bloqueada',
+            message: 'Tu cuenta ha sido suspendida. Contacta a los administradores para más información.'
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Calcular fecha de expiración (24 horas)
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
@@ -337,6 +362,17 @@ const App = () => {
       const response = await AuthService.register(userData);
       
       if (response.success) {
+        // Verificar si el usuario está bloqueado (en caso de que se bloquee durante el registro)
+        if (isUserBlocked(response.user.username)) {
+          addNotification({
+            type: 'error',
+            title: 'Cuenta bloqueada',
+            message: 'Esta cuenta ha sido suspendida. Contacta a los administradores.'
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Calcular fecha de expiración (24 horas)
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
@@ -420,6 +456,7 @@ const App = () => {
         onNavigate={showSection}
         isAuthenticated={auth.isAuthenticated}
         username={auth.user?.username || ''}
+        user={auth.user}
         onLogout={handleLogout}
         onShowLogin={() => setShowLogin(true)}
         onShowRegister={() => setShowRegister(true)}
@@ -456,6 +493,13 @@ const App = () => {
           user={auth.user}
           onNavigate={showSection}
           onUpdateUser={handleUpdateUser}
+          onNotify={addNotification}
+        />
+      )}
+
+      {currentSection === 'admin' && auth.isAuthenticated && (
+        <AdminPanel
+          user={auth.user}
           onNotify={addNotification}
         />
       )}

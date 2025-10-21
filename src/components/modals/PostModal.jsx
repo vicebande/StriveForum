@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import PostThreadModal from './PostThreadModal';
+import ReportUserModal from './ReportUserModal';
 
 const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
   const [post, setPost] = useState(initialPost || null);
@@ -7,6 +8,8 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [sortBy, setSortBy] = useState('newest'); // newest, oldest, popular
   const [showReplies, setShowReplies] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportingReply, setReportingReply] = useState(null);
 
   const getCurrentUser = useCallback(() => {
     try {
@@ -107,6 +110,21 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
     setReplyingTo(reply);
     setShowReplyModal(true);
   }, []);
+
+  const handleReportReply = useCallback((reply) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para reportar contenido'
+      });
+      return;
+    }
+    
+    setReportingReply(reply);
+    setShowReportModal(true);
+  }, [getCurrentUser, onNotify]);
 
   const handleLikeReply = useCallback((replyId) => {
     try {
@@ -367,6 +385,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
                       reply={reply}
                       onReplyTo={handleReplyToReply}
                       onLike={handleLikeReply}
+                      onReportReply={handleReportReply}
                       timeAgo={timeAgo}
                       currentUser={getCurrentUser()}
                     />
@@ -426,12 +445,27 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
         }}
         onNotify={onNotify}
       />
+
+      <ReportUserModal
+        show={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportingReply(null);
+        }}
+        reportedUsername={reportingReply?.author}
+        postId={reportingReply?.id}
+        topicId={post?.id}
+        reporterUser={getCurrentUser()}
+        contentType="reply"
+        replyContent={reportingReply?.content}
+        onNotify={onNotify}
+      />
     </div>
   );
 };
 
 // Componente para renderizar replies individuales con mejor diseño
-const ReplyComponent = ({ reply, onReplyTo, onLike, timeAgo, currentUser }) => {
+const ReplyComponent = ({ reply, onReplyTo, onLike, onReportReply, timeAgo, currentUser }) => {
   const [showChildReplies, setShowChildReplies] = useState(true);
   
   const getUserLikeStatus = (replyId) => {
@@ -487,6 +521,17 @@ const ReplyComponent = ({ reply, onReplyTo, onLike, timeAgo, currentUser }) => {
               <i className="fas fa-reply"></i>
               Responder
             </button>
+
+            {currentUser && currentUser.username !== reply.author && (
+              <button 
+                className="reply-action-btn report-btn"
+                onClick={() => onReportReply && onReportReply(reply)}
+                title="Reportar respuesta"
+              >
+                <i className="fas fa-flag"></i>
+                Reportar
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -510,6 +555,7 @@ const ReplyComponent = ({ reply, onReplyTo, onLike, timeAgo, currentUser }) => {
                   reply={childReply}
                   onReplyTo={onReplyTo}
                   onLike={onLike}
+                  onReportReply={onReportReply}
                   timeAgo={timeAgo}
                   currentUser={currentUser}
                 />

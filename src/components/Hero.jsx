@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import RecentActivity from './RecentActivity';
 
 const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
@@ -9,6 +9,41 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
   const poster = '/static/img/hero-poster.jpg';
 
   const [embedActive, setEmbedActive] = useState(false);
+
+  // Calcular estadísticas reales de la comunidad
+  const communityStats = useMemo(() => {
+    try {
+      // Obtener topics
+      const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      const activeTopics = topics.length;
+
+      // Obtener usuarios registrados
+      const registeredUsers = JSON.parse(localStorage.getItem('sf_registered_users') || '[]');
+      const totalUsers = registeredUsers.length;
+
+      // Obtener total de respuestas
+      const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+      let totalReplies = 0;
+      Object.values(postsMap).forEach(posts => {
+        if (Array.isArray(posts)) {
+          totalReplies += posts.length;
+        }
+      });
+
+      return {
+        activeTopics,
+        registeredUsers: totalUsers,
+        totalReplies
+      };
+    } catch (error) {
+      console.error('Error calculating community stats:', error);
+      return {
+        activeTopics: 0,
+        registeredUsers: 0,
+        totalReplies: 0
+      };
+    }
+  }, []);
 
   // Activar embed al montar para forzar carga con autoplay
   useEffect(() => {
@@ -31,7 +66,7 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
             <h1 className="small-accent">StriveForum</h1>
             <h2>Comparte, aprende y juega con la comunidad</h2>
             <p className="lead">
-              Encuentra foros, partidas y recursos. Únete a la comunidad para acceder al dashboard exclusivo.
+              Encuentra foros, partidas y recursos. Únete a la comunidad para interactuar con los usuarios.
             </p>
 
             <div className="hero-buttons">
@@ -67,14 +102,25 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
         </div>
 
         <div className="hero-activity-row" style={{marginTop:18}}>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 360px', gap:16}}>
-            <div className="hero-extra">
-              <div className="card-custom p-3">
-                <h4 style={{marginTop:0}}>Recursos destacados</h4>
-                <p className="small text-muted">Guías rápidas, eventos y partidas recomendadas. Haz click para ir al foro correspondiente.</p>
-                <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8}}>
-                  <button className="btn btn-secondary" onClick={() => onNavigate('learning')}>Ver guías</button>
-                  <button className="btn btn-primary" onClick={() => onNavigate('forums')}>Únete al foro</button>
+          <div className="hero-activity-container">
+            <div className="hero-featured-section">
+              <div className="card-custom">
+                <h4>Centro de la Comunidad</h4>
+                <p className="text-muted">Estadísticas en tiempo real y herramientas de la comunidad StriveForum</p>
+                
+                <div className="community-stats">
+                  <div className="stat-item">
+                    <div className="stat-number">{communityStats.activeTopics}</div>
+                    <div className="stat-label">Topics Activos</div>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-number">{communityStats.registeredUsers}</div>
+                    <div className="stat-label">Usuarios Registrados</div>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-number">{communityStats.totalReplies}</div>
+                    <div className="stat-label">Respuestas</div>
+                  </div>
                 </div>
               </div>
             </div>

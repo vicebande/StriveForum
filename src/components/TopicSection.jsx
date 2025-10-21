@@ -4,6 +4,8 @@ import CreateTopicModal from './modals/CreateTopicModal';
 import PostThreadModal from './modals/PostThreadModal';
 import NewPostModal from './modals/NewPostModal';
 import DeleteTopicModal from './modals/DeleteTopicModal';
+import ReportUserModal from './modals/ReportUserModal';
+import { isUserBlocked } from '../utils/roleUtils';
 
 const fakeTopics = [
   {
@@ -188,15 +190,7 @@ const safeParse = (raw, fallback) => {
 };
 
 const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
-  // Validación de props críticas
-  if (!currentTopicId) {
-    console.error('TopicSection: currentTopicId is required');
-    if (onNavigate && typeof onNavigate === 'function') {
-      onNavigate('forums');
-    }
-    return null;
-  }
-
+  // Todos los hooks deben ejecutarse antes de cualquier validación o return early
   const getCurrentUser = useCallback(() => {
     try {
       // Priorizar el user prop si está disponible
@@ -240,8 +234,37 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const [activeThreadPost, setActiveThreadPost] = useState(null);
   const [showNewPostModal, setShowNewPostModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
 
-  const topic = useMemo(() => topics.find(t => t.id === currentTopicId), [topics, currentTopicId]);
+  const topic = useMemo(() => {
+    if (!currentTopicId) return null;
+    return topics.find(t => t.id === currentTopicId);
+  }, [topics, currentTopicId]);
+
+  // Función para eliminar el topic actual - debe estar antes de los useEffect
+  const handleDeleteTopic = useCallback(async () => {
+    if (!currentTopicId || !topic) {
+      throw new Error('No hay topic para eliminar');
+    }
+
+    // Filtrar el topic de la lista
+    setTopics(prev => prev.filter(t => t.id !== currentTopicId));
+    
+    // Eliminar todos los posts asociados
+    setPostsMap(prev => {
+      const newMap = { ...prev };
+      delete newMap[currentTopicId];
+      return newMap;
+    });
+
+    // Redirigir a foros después de eliminar
+    if (onNavigate && typeof onNavigate === 'function') {
+      onNavigate('forums');
+    }
+
+    return 'Topic eliminado exitosamente';
+  }, [currentTopicId, topic, onNavigate]);
 
   useEffect(() => {
     try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch (err) { /* ignore */ }
@@ -277,6 +300,15 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       }
     } catch (err) { /* ignore */ }
   }, [showThreadModal, activeThreadPost, currentTopicId]);
+
+  // Validación de props críticas después de todos los hooks
+  if (!currentTopicId) {
+    console.error('TopicSection: currentTopicId is required');
+    if (onNavigate && typeof onNavigate === 'function') {
+      onNavigate('forums');
+    }
+    return null;
+  }
 
   const timeAgo = (timestamp) => {
     const diff = Math.floor((Date.now() - timestamp) / 1000);
@@ -328,6 +360,45 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     setShowThreadModal(true);
   };
 
+  const openReport = (post) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      safeNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para reportar usuarios'
+      });
+      return;
+    }
+
+    // No se puede reportar a uno mismo
+    if (currentUser.username === post.author) {
+      safeNotify({
+        type: 'warning',
+        title: 'Acción no permitida',
+        message: 'No puedes reportarte a ti mismo'
+      });
+      return;
+    }
+
+    // Verificar si el usuario está bloqueado
+    if (isUserBlocked(currentUser.username)) {
+      safeNotify({
+        type: 'error',
+        title: 'Acceso denegado',
+        message: 'Tu cuenta está bloqueada y no puedes realizar esta acción'
+      });
+      return;
+    }
+
+    setReportTarget({
+      username: post.author,
+      postId: post.id,
+      topicId: currentTopicId
+    });
+    setShowReportModal(true);
+  };
+
   const handleCreateTopic = ({ title, description, message }) => {
     const id = 't' + (Date.now().toString(36).slice(-6));
     const newTopic = { 
@@ -356,62 +427,6 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
     if (typeof onNavigate === 'function') onNavigate(`topic:${id}`);
   };
-
-  // Función para eliminar el topic actual
-  const handleDeleteTopic = useCallback(async () => {
-    if (!currentTopicId || !topic) {
-      throw new Error('No hay topic para eliminar');
-    }
-
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Debes estar autenticado');
-    }
-
-    // Verificar que el usuario es el autor del topic
-    if (topic.author !== currentUser.username) {
-      throw new Error('Solo el autor puede eliminar este topic');
-    }
-
-    try {
-      // Eliminar el topic de la lista de topics
-      setTopics(prevTopics => prevTopics.filter(t => t.id !== currentTopicId));
-      
-      // Eliminar todos los posts del topic
-      setPostsMap(prevPosts => {
-        const newPosts = { ...prevPosts };
-        delete newPosts[currentTopicId];
-        return newPosts;
-      });
-
-      // Actualizar localStorage
-      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      const updatedTopics = storedTopics.filter(t => t.id !== currentTopicId);
-      localStorage.setItem('sf_topics', JSON.stringify(updatedTopics));
-
-      const storedPosts = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-      delete storedPosts[currentTopicId];
-      localStorage.setItem('sf_postsMap', JSON.stringify(storedPosts));
-
-      // Notificar éxito y navegar de vuelta a los foros
-      if (onNotify) {
-        onNotify({
-          type: 'success',
-          title: 'Topic eliminado',
-          message: `"${topic.title}" ha sido eliminado exitosamente`
-        });
-      }
-
-      // Navegar de vuelta a la lista de foros
-      if (onNavigate) {
-        onNavigate('forums');
-      }
-
-    } catch (error) {
-      console.error('Error eliminando topic:', error);
-      throw error;
-    }
-  }, [currentTopicId, topic, getCurrentUser, setTopics, setPostsMap, onNotify, onNavigate]);
 
   const handleReplySubmit = ({ message }) => {
     if (!currentTopicId) {
@@ -654,6 +669,26 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
                     >
                       <i className="fas fa-share-alt"></i> Compartir
                     </button>
+                    {(() => {
+                      const currentUser = getCurrentUser();
+                      const canReport = currentUser && currentUser.username !== post.author;
+                      
+                      if (canReport) {
+                        return (
+                          <button 
+                            className="action-btn report" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openReport(post);
+                            }}
+                            title={`Reportar a ${post.author}`}
+                          >
+                            <i className="fas fa-flag"></i> Reportar
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -704,6 +739,20 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
         onDeleteTopic={handleDeleteTopic} 
         topicTitle={topic?.title || 'Topic'}
         onNotify={onNotify} 
+      />
+      
+      {/* Modal para reportar usuario */}
+      <ReportUserModal
+        show={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportTarget(null);
+        }}
+        reportedUsername={reportTarget?.username}
+        postId={reportTarget?.postId}
+        topicId={reportTarget?.topicId}
+        reporterUser={getCurrentUser()}
+        onNotify={safeNotify}
       />
     </section>
   );

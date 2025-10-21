@@ -1,7 +1,5 @@
 # 🥊 StriveForum - Comunidad de Juegos de Pelea
 
-# 🥊 StriveForum - Comunidad de Juegos de Pelea
-
 ## 📖 Descripción
 
 StriveForum es una aplicación web moderna (SPA) desarrollada en React con Vite, diseñada específicamente para la comunidad de juegos de pelea. La plataforma permite a los usuarios registrarse, participar en foros especializados, acceder a recursos educativos y gestionar su perfil con un dashboard personalizado.
@@ -13,7 +11,11 @@ StriveForum es una aplicación web moderna (SPA) desarrollada en React con Vite,
 - 📊 Dashboard interactivo con estadísticas relevantes al foro
 - 💬 Sistema completo de posts y respuestas con votaciones inteligentes
 - 🛠️ Gestión de topics con creación y eliminación segura
-- 📱 Diseño completamente responsivo con tema oscuro
+- �‍💼 Panel de administración completo con gestión de reportes
+- 🚨 Sistema de reportes para usuarios y respuestas
+- 📊 Actividad de usuarios en tiempo real con datos completos
+- 🔍 Filtros avanzados por fecha, tipo y estado en AdminPanel
+- �📱 Diseño completamente responsivo con tema oscuro
 - 🎨 Interfaz moderna con glassmorphism y animaciones suaves
 - 🔒 Sistema de seguridad con confirmaciones y validaciones
 - ⚡ Desarrollo rápido con Vite HMR (Hot Module Replacement)
@@ -47,6 +49,7 @@ StriveForum/
 │   │   ├── TopicSection.jsx       # Vista de topics con gestión completa
 │   │   ├── LearningSection.jsx    # Centro de aprendizaje moderno
 │   │   ├── RecentActivity.jsx     # Panel de actividad reciente
+│   │   ├── AdminPanel.jsx         # Panel de administración completo
 │   │   ├── modals/
 │   │   │   ├── LoginModal.jsx     # Modal de inicio de sesión
 │   │   │   ├── RegisterModal.jsx  # Modal de registro
@@ -54,11 +57,14 @@ StriveForum/
 │   │   │   ├── DeleteTopicModal.jsx # Eliminación segura con confirmación
 │   │   │   ├── NewPostModal.jsx
 │   │   │   ├── PostModal.jsx      # Modal para ver posts y respuestas
-│   │   │   └── PostThreadModal.jsx # Modal para responder posts
+│   │   │   ├── PostThreadModal.jsx # Modal para responder posts
+│   │   │   └── ReportUserModal.jsx # Modal para reportar usuarios/respuestas
 │   │   └── notifications/
 │   │       └── Notifications.jsx  # Sistema de notificaciones
-│   └── services/
-│       └── api.js                 # Preparado para integración con backend
+│   ├── services/
+│   │   └── api.js                 # Preparado para integración con backend
+│   └── utils/
+│       └── roleUtils.js           # Utilidades de roles, reportes y gestión de usuarios
 ├── package.json
 ├── package-lock.json
 └── README.md
@@ -66,11 +72,14 @@ StriveForum/
 
 ## ✨ Características Implementadas
 
-### 🔐 Sistema de Autenticación
+### � Sistema de Autenticación y Roles
 - **Registro e inicio de sesión** con validación completa
+- **Sistema de roles**: admin, moderator, user
 - **Persistencia de sesión** en localStorage
 - **Validación de usuarios únicos** y emails válidos
 - **Estados de autenticación** que controlan el acceso a funcionalidades
+- **Panel de administración** exclusivo para usuarios admin
+- **Control de permisos** por rol en tiempo real
 
 ### 🎮 Navegación y UI
 - **Navegación interna** basada en `currentSection` (home, forums, learning, dashboard)
@@ -92,6 +101,8 @@ StriveForum/
 - **Votaciones inteligentes** con sistema de debounce (500ms) anti-spam
 - **Control de votación** - solo un voto por usuario por topic/post
 - **Ordenamiento avanzado** por fecha (recientes/antiguos) y popularidad
+- **Sistema de reportes** integrado para posts y respuestas
+- **Botones de reporte** contextuales (solo para contenido de otros usuarios)
 - **Autenticación requerida** para todas las interacciones
 - **Permisos de autor** - solo el creador puede eliminar sus topics
 - **Persistencia completa** en localStorage con claves organizadas
@@ -110,6 +121,17 @@ StriveForum/
 - **Enlaces seguros** con `noopener,noreferrer`
 - **Banner dinámico** que cambia según el juego seleccionado
 - **Consejos de aprendizaje** con tips útiles
+
+### 👨‍💼 Panel de Administración Avanzado
+- **Gestión de reportes completa** con filtros por tipo, fecha y estado
+- **Visualización de actividad de usuarios** con historial detallado
+- **Sistema de reportes** para posts, respuestas y comportamiento
+- **Filtros inteligentes** por fecha, tipo de reporte y usuario reportado
+- **Interfaz moderna** con tarjetas organizadas y scroll personalizado
+- **Acciones administrativas** para revisar y gestionar reportes
+- **Actividad en tiempo real** con contenido expandible y timestamps
+- **Cooldown system** para prevenir spam de reportes (20 minutos)
+- **Tipos de reporte**: Spam, Acoso, Contenido inapropiado, Lenguaje ofensivo
 
 ### 🔧 Sistema Técnico Avanzado
 - **Persistencia completa** en localStorage (sf_topics, sf_postsMap, sf_user_votes)
@@ -176,6 +198,16 @@ StriveForum/
 
 ## 🛠️ Funcionalidades Técnicas Destacadas
 
+### Sistema de Reportes y Moderación
+```javascript
+// Reportes de usuarios, posts y respuestas
+// Cooldown de 20 minutos por usuario reportado
+// Tipos de reporte: SPAM, HARASSMENT, INAPPROPRIATE_CONTENT, OFFENSIVE_LANGUAGE, OTHER
+// Estados: pending, reviewed, dismissed
+// Filtros por fecha, tipo y usuario en AdminPanel
+// Contenido reportado preservado para revisión
+```
+
 ### Sistema de Votación Inteligente
 ```javascript
 // Debounce de 500ms para prevenir spam
@@ -196,17 +228,23 @@ StriveForum/
 ```javascript
 // Claves localStorage:
 // - sf_topics: Lista de topics
-// - sf_postsMap: Posts organizados por topic
+// - sf_postsMap: Posts organizados por topic con respuestas anidadas
 // - sf_user_votes: Control de votaciones por usuario
-// - sf_users: Usuarios registrados
+// - sf_users: Usuarios registrados con roles
+// - sf_reports: Sistema de reportes con timestamps y estado
+// - sf_user_likes: Sistema de likes para respuestas
+// - sf_auth_session: Sesión activa del usuario
+// - sf_report_cooldowns: Control de cooldown para reportes
 ```
 
 ## 📝 Notas para Desarrolladores
 
 ### Navegación y Estado
 - **Topics**: Usar `showSection('topic:<id>')` para abrir TopicSection
+- **AdminPanel**: Accesible desde el menú del usuario (solo para admins)
 - **Estados**: La navegación se maneja con `currentSection` en App.jsx
 - **Modales**: Sistema centralizado en `/components/modals/`
+- **Reportes**: Botones contextuales en posts y respuestas
 
 ### Datos y Persistencia  
 - **Datos actuales**: Simulados en localStorage (desarrollo)

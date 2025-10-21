@@ -1,50 +1,120 @@
+import { useMemo } from 'react';
+
+// Función para obtener actividades recientes del foro
+const getRecentForumActivity = () => {
+  const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+  const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+  
+  const activities = [];
+  
+  // Obtener últimos topics creados
+  const recentTopics = topics
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 3);
+  
+  recentTopics.forEach(topic => {
+    activities.push({
+      id: `topic-${topic.id}`,
+      type: 'topic',
+      title: topic.title,
+      meta: `por ${topic.author}`,
+      time: new Date(topic.createdAt).getTime(),
+      topicId: topic.id
+    });
+  });
+  
+  // Obtener últimas respuestas
+  const recentPosts = [];
+  Object.entries(postsMap).forEach(([topicId, posts]) => {
+    if (Array.isArray(posts)) {
+      posts.forEach(post => {
+        const topic = topics.find(t => t.id === parseInt(topicId));
+        if (topic) {
+          recentPosts.push({
+            id: `post-${post.id || Date.now()}-${topicId}`,
+            type: 'reply',
+            title: `Respuesta en "${topic.title}"`,
+            meta: `por ${post.author}`,
+            time: new Date(post.createdAt).getTime(),
+            topicId: parseInt(topicId)
+          });
+        }
+      });
+    }
+  });
+  
+  // Agregar posts recientes
+  const sortedPosts = recentPosts
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 4);
+  
+  activities.push(...sortedPosts);
+  
+  // Ordenar todas las actividades por fecha y tomar las más recientes
+  return activities
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 5);
+};
+
+// Función para formatear tiempo relativo
+const getTimeAgo = (timestamp) => {
+  const now = Date.now();
+  const diff = Math.floor((now - timestamp) / 1000);
+  
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+  return 'hace tiempo';
+};
+
 /*
  Props:
   - onNavigate(fn) optional: callback para navegar al hacer click en una actividad
-  - items optional: array de eventos (si no, usa datos fake)
+  - items optional: array de eventos (si no, usa datos reales)
 */
 const RecentActivity = ({ onNavigate, items }) => {
-  const sample = items || [
-    { id: 'a1', type: 'post', title: 'Nuevo post: Guías avanzadas', meta: 'en Guías y combos', time: Date.now() - 1000*60*30 },
-    { id: 'a2', type: 'reply', title: 'Respuesta a tu publicación', meta: 'en Foros', time: Date.now() - 1000*60*60*3 },
-    { id: 'a3', type: 'topic', title: 'Tema creado: Torneos locales', meta: 'por Admin', time: Date.now() - 1000*60*60*24 },
-  ];
+  // Usar datos reales si no se proporcionan items
+  const realActivity = useMemo(() => {
+    return getRecentForumActivity();
+  }, []);
 
-  const handleClick = (ev, item) => {
+  const activities = items || realActivity;
+
+  const handleClick = (ev, activity) => {
     ev.preventDefault();
-    if (typeof onNavigate === 'function') {
-      // ejemplo: navegar a topic genérico o sección según type
-      if (item.type === 'post') onNavigate('forums');
-      else if (item.type === 'reply') onNavigate('forums');
-      else onNavigate('forums');
+    if (typeof onNavigate === 'function' && activity.topicId) {
+      // Navegar al topic específico usando el formato correcto
+      onNavigate(`topic:${activity.topicId}`);
     }
   };
 
-  const timeAgo = (ts) => {
-    const diff = Math.floor((Date.now() - ts) / 1000);
-    if (diff < 60) return `${diff}s`;
-    if (diff < 3600) return `${Math.floor(diff/60)}m`;
-    if (diff < 86400) return `${Math.floor(diff/3600)}h`;
-    return `${Math.floor(diff/86400)}d`;
-  };
+
 
   return (
     <aside className="recent-activity card-custom p-3">
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5 style={{margin:0}}>Actividad reciente</h5>
-        <small className="text-muted">Hoy</small>
       </div>
 
       <ul className="activity-list" style={{listStyle:'none', padding:0, margin:0}}>
-        {sample.map(it => (
-          <li key={it.id} className="activity-item" onClick={(e)=>handleClick(e, it)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleClick(e,it); }}>
-            <div className="activity-avatar">{it.type === 'reply' ? 'R' : it.type === 'post' ? 'P' : 'T'}</div>
-            <div className="activity-body">
-              <div className="activity-title">{it.title}</div>
-              <div className="activity-meta">{it.meta} · <span className="activity-time">{timeAgo(it.time)}</span></div>
-            </div>
+        {activities.length > 0 ? (
+          activities.map(activity => (
+            <li key={activity.id} className="activity-item" onClick={(e)=>handleClick(e, activity)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleClick(e,activity); }}>
+              <div className="activity-avatar">
+                {activity.type === 'reply' ? '↩' : activity.type === 'topic' ? '📝' : '💬'}
+              </div>
+              <div className="activity-body">
+                <div className="activity-title">{activity.title}</div>
+                <div className="activity-meta">{activity.meta} · <span className="activity-time">{getTimeAgo(activity.time)}</span></div>
+              </div>
+            </li>
+          ))
+        ) : (
+          <li className="text-muted text-center py-3">
+            <small>No hay actividad reciente</small>
           </li>
-        ))}
+        )}
       </ul>
     </aside>
   );

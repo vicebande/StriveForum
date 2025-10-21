@@ -421,7 +421,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     <section id="forumsSection" className="content-section forums-reddit" style={{paddingTop:90}}>
       <div className="container">
         <div className="forums-header mb-4">
-          <h2>🗣️<i className="fas fa-comments"></i>Foros de la Comunidad</h2>
+          <h2><i className="fas fa-comments"></i>Foros de la Comunidad</h2>
           <p className="text-muted">Comparte estrategias, encuentra compañeros y únete a la discusión</p>
         </div>
 

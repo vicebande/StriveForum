@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { isAdmin } from '../utils/roleUtils';
 
-const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, onShowRegister }) => {
+const Navbar = ({ onNavigate, isAuthenticated, username, user, onLogout, onShowLogin, onShowRegister }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -60,7 +61,7 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
       <div className="container">
         <button className="navbar-brand btn btn-link p-0 border-0" onClick={() => handleNavClick('home')}>
           <i className="fas fa-fist-raised" aria-hidden="true"></i>
-          <span>StriveForum</span>
+          <span className="brand-text">StriveForum</span>
         </button>
 
         <button
@@ -103,28 +104,39 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
                 </button>
               </li>
             )}
+
+            {isAuthenticated && user && isAdmin(user) && (
+              <li className="nav-item">
+                <button className="nav-link btn btn-link border-0 admin-nav-link" onClick={() => handleNavClick('admin')}>
+                  <i className="fas fa-shield-alt" aria-hidden="true"></i> Admin
+                </button>
+              </li>
+            )}
           </ul>
 
           <div className="navbar-user">
             {!isAuthenticated ? (
-              <div style={{display: 'flex', gap: 8}}>
+              <div className="auth-buttons">
                 <button className="btn btn-secondary" onClick={() => { setMobileMenuOpen(false); onShowLogin(); }}>
-                  <i className="fas fa-sign-in-alt" aria-hidden="true"></i> Iniciar Sesión
+                  <i className="fas fa-sign-in-alt" aria-hidden="true"></i>
+                  <span>Iniciar Sesión</span>
                 </button>
                 <button className="btn btn-primary" onClick={() => { setMobileMenuOpen(false); onShowRegister(); }}>
-                  <i className="fas fa-user-plus" aria-hidden="true"></i> Registrarse
+                  <i className="fas fa-user-plus" aria-hidden="true"></i>
+                  <span>Registrarse</span>
                 </button>
               </div>
             ) : (
               <div className="profile-dropdown" ref={dropdownRef}>
-                <div 
+                <button 
                   className={`user-info ${showProfileMenu ? 'active' : ''}`} 
                   onClick={toggleProfileMenu}
+                  type="button"
                 >
                   <div className="user-avatar">{username ? username[0].toUpperCase() : 'U'}</div>
-                  <span>{username || 'Usuario'}</span>
+                  <span className="user-name">{username || 'Usuario'}</span>
                   <i className="fas fa-chevron-down dropdown-arrow"></i>
-                </div>
+                </button>
 
                 {showProfileMenu && (
                   <div className="profile-menu show">
@@ -148,6 +160,19 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
                       <i className="fas fa-graduation-cap"></i>
                       Aprender
                     </button>
+
+                    {user && isAdmin(user) && (
+                      <>
+                        <div className="profile-menu-divider"></div>
+                        <button 
+                          className="profile-menu-item admin-item" 
+                          onClick={() => handleMenuClick(() => onNavigate('admin'))}
+                        >
+                          <i className="fas fa-shield-alt"></i>
+                          Panel de Admin
+                        </button>
+                      </>
+                    )}
 
                     <div className="profile-menu-divider"></div>
 

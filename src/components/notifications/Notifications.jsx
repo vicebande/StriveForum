@@ -26,20 +26,20 @@ const Notifications = ({ notifications = [], onDismiss }) => {
 const Notification = ({ notification, onDismiss }) => {
   const { id, type = 'info', title = '', message = '' } = notification || {};
 
-  // Validar que la notificación tenga ID
-  if (!id) {
-    console.warn('Notification missing ID:', notification);
-    return null;
-  }
-
   useEffect(() => {
-    if (typeof onDismiss === 'function') {
+    if (id && typeof onDismiss === 'function') {
       const timer = setTimeout(() => {
         onDismiss(id);
       }, 6000);
       return () => clearTimeout(timer);
     }
   }, [id, onDismiss]);
+
+  // Validar que la notificación tenga ID después de los hooks
+  if (!id) {
+    console.warn('Notification missing ID:', notification);
+    return null;
+  }
 
   const getIcon = () => {
     switch (type) {
