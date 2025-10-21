@@ -114,7 +114,7 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
 
   // demo stats
   const stats = [
-    { icon: 'fa-gamepad', title: 'Partidas Jugadas', value: '122', delta: 8 },
+    { icon: 'fa-plus-circle', title: 'Temas Creados', value: '28', delta: 15 },
     { icon: 'fa-comments', title: 'Posts Creados', value: '34', delta: -3 },
     { icon: 'fa-users', title: 'Seguidores', value: '48', delta: 12 },
     { icon: 'fa-star', title: 'Reputación', value: '1.4k', delta: 5 },

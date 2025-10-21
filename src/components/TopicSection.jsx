@@ -3,6 +3,7 @@ import PostModal from './modals/PostModal';
 import CreateTopicModal from './modals/CreateTopicModal';
 import PostThreadModal from './modals/PostThreadModal';
 import NewPostModal from './modals/NewPostModal';
+import DeleteTopicModal from './modals/DeleteTopicModal';
 
 const fakeTopics = [
   {
@@ -212,6 +213,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const [showThreadModal, setShowThreadModal] = useState(false);
   const [activeThreadPost, setActiveThreadPost] = useState(null);
   const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const topic = useMemo(() => topics.find(t => t.id === currentTopicId), [topics, currentTopicId]);
 
@@ -328,6 +330,62 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
     if (typeof onNavigate === 'function') onNavigate(`topic:${id}`);
   };
+
+  // Función para eliminar el topic actual
+  const handleDeleteTopic = useCallback(async () => {
+    if (!currentTopicId || !topic) {
+      throw new Error('No hay topic para eliminar');
+    }
+
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('Debes estar autenticado');
+    }
+
+    // Verificar que el usuario es el autor del topic
+    if (topic.author !== currentUser.username) {
+      throw new Error('Solo el autor puede eliminar este topic');
+    }
+
+    try {
+      // Eliminar el topic de la lista de topics
+      setTopics(prevTopics => prevTopics.filter(t => t.id !== currentTopicId));
+      
+      // Eliminar todos los posts del topic
+      setPostsMap(prevPosts => {
+        const newPosts = { ...prevPosts };
+        delete newPosts[currentTopicId];
+        return newPosts;
+      });
+
+      // Actualizar localStorage
+      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      const updatedTopics = storedTopics.filter(t => t.id !== currentTopicId);
+      localStorage.setItem('sf_topics', JSON.stringify(updatedTopics));
+
+      const storedPosts = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+      delete storedPosts[currentTopicId];
+      localStorage.setItem('sf_postsMap', JSON.stringify(storedPosts));
+
+      // Notificar éxito y navegar de vuelta a los foros
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Topic eliminado',
+          message: `"${topic.title}" ha sido eliminado exitosamente`
+        });
+      }
+
+      // Navegar de vuelta a la lista de foros
+      if (onNavigate) {
+        onNavigate('forums');
+      }
+
+    } catch (error) {
+      console.error('Error eliminando topic:', error);
+      throw error;
+    }
+  }, [currentTopicId, topic, getCurrentUser, setTopics, setPostsMap, onNotify, onNavigate]);
 
   const handleReplySubmit = ({ message }) => {
     if (!currentTopicId) {
@@ -494,6 +552,26 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
               <button className="btn btn-primary" onClick={openNewPost}>
                 <i className="fas fa-plus"></i> Nuevo Post
               </button>
+              
+              {/* Botón de eliminar topic - solo visible para el autor */}
+              {(() => {
+                const currentUser = getCurrentUser();
+                const isAuthor = currentUser && topic && topic.author === currentUser.username;
+                
+                if (isAuthor) {
+                  return (
+                    <button 
+                      className="btn btn-danger ms-2" 
+                      onClick={() => setShowDeleteModal(true)}
+                      title="Eliminar topic"
+                      aria-label="Eliminar topic"
+                    >
+                      <i className="fas fa-trash"></i> Eliminar
+                    </button>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </div>
@@ -591,6 +669,15 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
         show={showThreadModal}
         onClose={() => { setShowThreadModal(false); setActiveThreadPost(null); }}
         post={activeThreadPost}
+      />
+      
+      {/* Modal de confirmación para eliminar topic */}
+      <DeleteTopicModal 
+        show={showDeleteModal} 
+        onClose={() => setShowDeleteModal(false)} 
+        onDeleteTopic={handleDeleteTopic} 
+        topicTitle={topic?.title || 'Topic'}
+        onNotify={onNotify} 
       />
     </section>
   );

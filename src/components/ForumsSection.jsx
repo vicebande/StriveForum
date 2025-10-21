@@ -1,7 +1,11 @@
 import React, { useState, useCallback } from 'react';
+import CreateTopicModal from './modals/CreateTopicModal';
 
 const ForumsSection = ({ onNotify, onNavigate }) => {
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
+  const [votingInProgress, setVotingInProgress] = useState(new Set());
+  const [lastVoteTime, setLastVoteTime] = useState({});
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const initialTopics = [
     { 
@@ -30,7 +34,14 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     },
   ];
 
-  const [topics, setTopics] = useState(initialTopics);
+  const [topics, setTopics] = useState(() => {
+    try {
+      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      return storedTopics.length > 0 ? storedTopics : initialTopics;
+    } catch {
+      return initialTopics;
+    }
+  });
 
   const handleSort = (type) => {
     setSortBy(type);
@@ -90,6 +101,96 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     }
   }, [getCurrentUser]);
 
+  // Función para validar que un usuario no pueda votar múltiples veces
+  const validateVoteAttempt = useCallback((topicId, voteType) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return false;
+    
+    // La validación específica se hace en handleVote
+    // Esta función actúa como un filtro previo simple
+    return true;
+  }, [getCurrentUser]);
+
+  // Función para crear un nuevo topic desde ForumsSection
+  const handleCreateTopic = useCallback(({ title, content, category }) => {
+    const currentUser = getCurrentUser();
+    
+    if (!currentUser) {
+      if (onNotify) onNotify({
+        type: 'warning',
+        title: 'Acceso requerido',
+        message: 'Debes iniciar sesión para crear un topic'
+      });
+      return;
+    }
+
+    // Generar ID único para el topic
+    const topicId = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    
+    // Crear el nuevo topic
+    const newTopic = {
+      id: topicId,
+      title: title.trim(),
+      description: content.trim(),
+      author: currentUser.username || 'Usuario',
+      authorAvatar: (currentUser.username || 'U')[0].toUpperCase(),
+      createdAt: Date.now(),
+      category: category || 'general',
+      upvotes: 0,
+      downvotes: 0,
+      replies: 0,
+      views: 0,
+      isPinned: false,
+      isLocked: false
+    };
+
+    // Actualizar la lista de topics
+    setTopics(prevTopics => [newTopic, ...prevTopics]);
+
+    // Persistir en localStorage
+    try {
+      // Cargar topics existentes del localStorage
+      let storedData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+      
+      // Crear el topic vacío (sin posts iniciales)
+      storedData[topicId] = [];
+      
+      // Guardar el topic en la lista general
+      const allTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      allTopics.unshift(newTopic);
+      localStorage.setItem('sf_topics', JSON.stringify(allTopics));
+      
+      // Guardar posts
+      localStorage.setItem('sf_postsMap', JSON.stringify(storedData));
+
+      // Cerrar modal y notificar
+      setShowCreateModal(false);
+      
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Topic creado',
+          message: `"${title}" ha sido creado exitosamente`
+        });
+      }
+
+      // Navegar al nuevo topic
+      if (onNavigate) {
+        onNavigate(`topic:${topicId}`);
+      }
+
+    } catch (error) {
+      console.error('Error al crear topic:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo crear el topic. Inténtalo nuevamente.'
+        });
+      }
+    }
+  }, [getCurrentUser, onNotify, onNavigate, setTopics]);
+
   const handleVote = useCallback((topicId, voteType) => {
     const currentUser = getCurrentUser();
     
@@ -102,84 +203,153 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       return;
     }
 
-    // Obtener votos del usuario
-    let userVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
-    const userVoteKey = `${currentUser.id}_${topicId}`;
-    const previousVote = userVotes[userVoteKey];
+    // Prevenir múltiples votaciones simultáneas para el mismo topic
+    if (votingInProgress.has(topicId)) {
+      return;
+    }
 
-    // Actualizar el estado local inmediatamente
-    setTopics(prev => prev.map(topic => {
-      if (topic.id === topicId) {
-        const updatedTopic = { ...topic };
-        
-        // Remover voto anterior si existe
-        if (previousVote) {
-          if (previousVote === 'up') {
-            updatedTopic.upvotes = Math.max(0, (updatedTopic.upvotes || 0) - 1);
-          } else {
-            updatedTopic.downvotes = Math.max(0, (updatedTopic.downvotes || 0) - 1);
-          }
-        }
-        
-        // Aplicar nuevo voto o remover si es el mismo
-        if (previousVote === voteType) {
-          // Remover voto
-          delete userVotes[userVoteKey];
-        } else {
-          // Agregar nuevo voto
-          userVotes[userVoteKey] = voteType;
-          if (voteType === 'up') {
-            updatedTopic.upvotes = (updatedTopic.upvotes || 0) + 1;
-          } else {
-            updatedTopic.downvotes = (updatedTopic.downvotes || 0) + 1;
-          }
-        }
-        
-        return updatedTopic;
-      }
-      return topic;
+    // Debounce: Prevenir votos muy rápidos (menos de 500ms entre votos del mismo usuario en el mismo topic)
+    const voteKey = `${currentUser.id}_${topicId}`;
+    const now = Date.now();
+    const lastTime = lastVoteTime[voteKey] || 0;
+    
+    if (now - lastTime < 500) {
+      return;
+    }
+    
+    // Actualizar timestamp del último voto
+    setLastVoteTime(prev => ({
+      ...prev,
+      [voteKey]: now
     }));
 
-    // Guardar votos en localStorage
-    localStorage.setItem('sf_user_votes', JSON.stringify(userVotes));
-    
-    // También actualizar en el localStorage de posts para consistencia
-    let storedData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-    Object.keys(storedData).forEach(categoryId => {
-      if (storedData[categoryId] && Array.isArray(storedData[categoryId])) {
-        const topicIndex = storedData[categoryId].findIndex(t => t.id === topicId);
-        if (topicIndex !== -1) {
-          const topic = storedData[categoryId][topicIndex];
+    // Marcar votación en progreso
+    setVotingInProgress(prev => new Set([...prev, topicId]));
+
+    try {
+      // Obtener votos del usuario de localStorage
+      let userVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
+      const userVoteKey = `${currentUser.id}_${topicId}`;
+      const previousVote = userVotes[userVoteKey];
+      
+      // LÓGICA DE VOTACIÓN - Un usuario puede dar máximo 1 voto por topic
+      let newVote = null;
+      let actionType = '';
+      
+      if (previousVote === voteType) {
+        // Caso 1: El usuario clickeó el mismo botón - REMOVER voto
+        actionType = 'remove';
+        delete userVotes[userVoteKey];
+      } else {
+        // Caso 2: El usuario clickeó un botón diferente o no tenía voto previo - AGREGAR/CAMBIAR voto
+        actionType = 'add';
+        newVote = voteType;
+        userVotes[userVoteKey] = voteType;
+      }
+
+      // Actualizar el estado local de topics
+      setTopics(prev => prev.map(topic => {
+        if (topic.id === topicId) {
+          const updatedTopic = { ...topic };
           
-          // Aplicar la misma lógica de votación
+          // Primero remover el voto anterior si existía
           if (previousVote) {
             if (previousVote === 'up') {
-              topic.upvotes = Math.max(0, (topic.upvotes || 0) - 1);
+              updatedTopic.upvotes = Math.max(0, (updatedTopic.upvotes || 0) - 1);
             } else {
-              topic.downvotes = Math.max(0, (topic.downvotes || 0) - 1);
+              updatedTopic.downvotes = Math.max(0, (updatedTopic.downvotes || 0) - 1);
             }
           }
           
-          if (previousVote !== voteType) {
-            if (voteType === 'up') {
-              topic.upvotes = (topic.upvotes || 0) + 1;
+          // Luego agregar el nuevo voto si corresponde
+          if (actionType === 'add') {
+            if (newVote === 'up') {
+              updatedTopic.upvotes = (updatedTopic.upvotes || 0) + 1;
             } else {
-              topic.downvotes = (topic.downvotes || 0) + 1;
+              updatedTopic.downvotes = (updatedTopic.downvotes || 0) + 1;
             }
           }
           
-          storedData[categoryId][topicIndex] = topic;
+          return updatedTopic;
         }
-      }
-    });
-    
-    localStorage.setItem('sf_postsMap', JSON.stringify(storedData));
+        return topic;
+      }));
 
-    if (onNotify) {
-      const action = userVotes[userVoteKey] ? 'registrado' : 'removido';
-      onNotify(`Voto ${action} correctamente`, 'success');
+      // Validar que el voto no se duplicó antes de guardar
+      const finalUserVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
+      const currentVoteInStorage = finalUserVotes[userVoteKey];
+      
+      // Solo proceder si el estado es consistente o si estamos removiendo
+      if (actionType === 'remove' || !currentVoteInStorage || currentVoteInStorage !== voteType) {
+        // Guardar votos en localStorage de forma segura
+        localStorage.setItem('sf_user_votes', JSON.stringify(userVotes));
+      } else {
+        // Si ya existe el mismo voto, revertir cambios en el estado
+        throw new Error('Voto duplicado detectado');
+      }
+      
+      // También actualizar en el localStorage de posts para consistencia
+      let storedData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+      Object.keys(storedData).forEach(categoryId => {
+        if (storedData[categoryId] && Array.isArray(storedData[categoryId])) {
+          const topicIndex = storedData[categoryId].findIndex(t => t.id === topicId);
+          if (topicIndex !== -1) {
+            const topic = storedData[categoryId][topicIndex];
+            
+            // Aplicar la misma lógica de votación
+            if (previousVote) {
+              if (previousVote === 'up') {
+                topic.upvotes = Math.max(0, (topic.upvotes || 0) - 1);
+              } else {
+                topic.downvotes = Math.max(0, (topic.downvotes || 0) - 1);
+              }
+            }
+            
+            // Solo agregar voto si no es el mismo que el anterior
+            if (previousVote !== voteType) {
+              if (voteType === 'up') {
+                topic.upvotes = (topic.upvotes || 0) + 1;
+              } else {
+                topic.downvotes = (topic.downvotes || 0) + 1;
+              }
+            }
+            
+            storedData[categoryId][topicIndex] = topic;
+          }
+        }
+      });
+      
+      localStorage.setItem('sf_postsMap', JSON.stringify(storedData));
+
+      // Notificar resultado
+      if (onNotify) {
+        const hasVote = userVotes[userVoteKey];
+        const action = hasVote ? 'registrado' : 'removido';
+        const voteTypeText = hasVote === 'up' ? 'positivo' : hasVote === 'down' ? 'negativo' : '';
+        onNotify({
+          type: 'success',
+          title: 'Votación actualizada',
+          message: `Voto ${voteTypeText} ${action} correctamente`
+        });
+      }
+    } catch (error) {
+      console.error('Error al guardar voto:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo registrar el voto. Inténtalo nuevamente.'
+        });
+      }
+    } finally {
+      // Limpiar el estado de votación en progreso
+      setVotingInProgress(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(topicId);
+        return newSet;
+      });
     }
-  }, [getCurrentUser, onNotify]);
+  }, [getCurrentUser, onNotify, votingInProgress, lastVoteTime]);
 
 
 
@@ -264,7 +434,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
               });
               return;
             }
-            onNavigate('topic:new');
+            setShowCreateModal(true);
           }}>
             <i className="fas fa-plus me-2" aria-hidden="true"></i> Crear Topic
           </button>
@@ -287,30 +457,39 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
                 <div className="vote-sidebar">
                   {(() => {
                     const userVote = getUserVoteStatus(topic.id);
+                    const isVoting = votingInProgress.has(topic.id);
                     return (
                       <>
                         <button 
-                          className={`vote-btn upvote ${userVote === 'up' ? 'active' : ''}`}
+                          className={`vote-btn upvote ${userVote === 'up' ? 'active' : ''} ${isVoting ? 'voting' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleVote(topic.id, 'up');
+                            e.preventDefault();
+                            if (!isVoting && validateVoteAttempt(topic.id, 'up')) {
+                              handleVote(topic.id, 'up');
+                            }
                           }}
+                          disabled={isVoting}
                           aria-label="Upvote"
-                          title="Votar positivo"
+                          title={isVoting ? "Procesando voto..." : userVote === 'up' ? "Remover voto positivo" : "Votar positivo"}
                         >
-                          <i className="fas fa-arrow-up"></i>
+                          <i className={`fas ${isVoting ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`}></i>
                         </button>
                         <span className="vote-score" aria-live="polite">{score}</span>
                         <button 
-                          className={`vote-btn downvote ${userVote === 'down' ? 'active' : ''}`}
+                          className={`vote-btn downvote ${userVote === 'down' ? 'active' : ''} ${isVoting ? 'voting' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleVote(topic.id, 'down');
+                            e.preventDefault();
+                            if (!isVoting && validateVoteAttempt(topic.id, 'down')) {
+                              handleVote(topic.id, 'down');
+                            }
                           }}
+                          disabled={isVoting}
                           aria-label="Downvote"
-                          title="Votar negativo"
+                          title={isVoting ? "Procesando voto..." : userVote === 'down' ? "Remover voto negativo" : "Votar negativo"}
                         >
-                          <i className="fas fa-arrow-down"></i>
+                          <i className={`fas ${isVoting ? 'fa-spinner fa-spin' : 'fa-arrow-down'}`}></i>
                         </button>
                       </>
                     );
@@ -365,6 +544,14 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
           })}
         </div>
       </div>
+      
+      {/* Modal para crear nuevo topic */}
+      <CreateTopicModal 
+        show={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+        onCreateTopic={handleCreateTopic} 
+        onNotify={onNotify} 
+      />
     </section>
   );
 };
