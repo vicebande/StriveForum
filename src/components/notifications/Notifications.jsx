@@ -1,23 +1,44 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
-const Notifications = ({ notifications, onDismiss }) => {
+const Notifications = ({ notifications = [], onDismiss }) => {
+  // Validar que notifications sea un array
+  if (!Array.isArray(notifications)) {
+    console.warn('Notifications: notifications prop should be an array');
+    return null;
+  }
+
   return (
     <div className="notifications-container">
-      {notifications.map(notif => (
-        <Notification key={notif.id} notification={notif} onDismiss={onDismiss} />
-      ))}
+      {notifications.map(notif => {
+        // Validar que cada notificación tenga los campos requeridos
+        if (!notif || !notif.id) {
+          console.warn('Invalid notification object:', notif);
+          return null;
+        }
+        return (
+          <Notification key={notif.id} notification={notif} onDismiss={onDismiss} />
+        );
+      })}
     </div>
   );
 };
 
 const Notification = ({ notification, onDismiss }) => {
-  const { id, type, title, message } = notification;
+  const { id, type = 'info', title = '', message = '' } = notification || {};
+
+  // Validar que la notificación tenga ID
+  if (!id) {
+    console.warn('Notification missing ID:', notification);
+    return null;
+  }
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onDismiss(id);
-    }, 6000);
-    return () => clearTimeout(timer);
+    if (typeof onDismiss === 'function') {
+      const timer = setTimeout(() => {
+        onDismiss(id);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
   }, [id, onDismiss]);
 
   const getIcon = () => {

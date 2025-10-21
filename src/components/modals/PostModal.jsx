@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import PostThreadModal from './PostThreadModal';
 
 const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {

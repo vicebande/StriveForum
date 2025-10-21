@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import CreateTopicModal from './modals/CreateTopicModal';
 
 const ForumsSection = ({ onNotify, onNavigate }) => {
@@ -21,6 +21,18 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       category: 'Guías'
     },
     { 
+      id: 't2', 
+      title: 'Análisis del meta actual - Temporada 3', 
+      description: 'Discusión sobre los cambios de balance y el estado actual del meta',
+      author: 'MetaExpert',
+      authorAvatar: 'M',
+      createdAt: Date.now()-1000*60*60*24*3,
+      upvotes: 89,
+      downvotes: 12,
+      comments: 38,
+      category: 'Análisis'
+    },
+    { 
       id: 't3', 
       title: '¿Qué personaje recomiendan para empezar?', 
       description: 'Soy nuevo en fighting games y no sé por dónde empezar',
@@ -36,8 +48,11 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
 
   const [topics, setTopics] = useState(() => {
     try {
-      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      return storedTopics.length > 0 ? storedTopics : initialTopics;
+      // Limpiar localStorage para forzar el uso de initialTopics actualizados
+      localStorage.removeItem('sf_topics');
+      localStorage.setItem('sf_topics', JSON.stringify(initialTopics));
+      console.log('Topics inicializados:', initialTopics);
+      return initialTopics;
     } catch {
       return initialTopics;
     }
@@ -102,14 +117,22 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
   }, [getCurrentUser]);
 
   // Función para validar que un usuario no pueda votar múltiples veces
-  const validateVoteAttempt = useCallback((topicId, voteType) => {
+  const validateVoteAttempt = useCallback((_topicId, _voteType) => {
     const currentUser = getCurrentUser();
-    if (!currentUser) return false;
+    if (!currentUser) {
+      if (onNotify) {
+        onNotify({
+          type: 'warning',
+          message: 'Debes iniciar sesión para votar'
+        });
+      }
+      return false;
+    }
     
     // La validación específica se hace en handleVote
     // Esta función actúa como un filtro previo simple
     return true;
-  }, [getCurrentUser]);
+  }, [getCurrentUser, onNotify]);
 
   // Función para crear un nuevo topic desde ForumsSection
   const handleCreateTopic = useCallback(({ title, content, category }) => {
@@ -195,11 +218,14 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     const currentUser = getCurrentUser();
     
     if (!currentUser) {
-      if (onNotify) onNotify({
-        type: 'warning',
-        title: 'Acceso requerido',
-        message: 'Debes iniciar sesión para votar'
-      });
+      // Solo mostrar notificación si onNotify está disponible
+      if (onNotify && typeof onNotify === 'function') {
+        onNotify({
+          type: 'warning',
+          title: 'Acceso requerido',
+          message: 'Debes iniciar sesión para votar'
+        });
+      }
       return;
     }
 
@@ -395,7 +421,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     <section id="forumsSection" className="content-section forums-reddit" style={{paddingTop:90}}>
       <div className="container">
         <div className="forums-header mb-4">
-          <h2><i className="fas fa-comments"></i> Foros de la Comunidad</h2>
+          <h2>🗣️<i className="fas fa-comments"></i>Foros de la Comunidad</h2>
           <p className="text-muted">Comparte estrategias, encuentra compañeros y únete a la discusión</p>
         </div>
 
@@ -443,7 +469,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
         {/* Lista de topics estilo Reddit */}
         <div className="topics-list">
           {topics.map(topic => {
-            const score = topic.upvotes - topic.downvotes;
+            const score = (topic.upvotes || 0) - (topic.downvotes || 0);
             return (
               <div 
                 key={topic.id} 

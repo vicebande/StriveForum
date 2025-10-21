@@ -1,5 +1,3 @@
-import React from 'react';
-
 /*
  Props:
   - onNavigate(fn) optional: callback para navegar al hacer click en una actividad

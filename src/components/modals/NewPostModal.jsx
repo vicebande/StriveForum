@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
   const getCurrentUser = useCallback(() => {

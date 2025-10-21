@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import RecentActivity from './RecentActivity';
 
 const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {

@@ -2,13 +2,19 @@
 
 :root {
   --bg-dark: #0a0a0a;
+  --dark-bg: #0a0a0a;
   --bg-card: #111111;
   --accent-red: #e53935;
+  --accent-red-dark: #b71c1c;
   --accent-yellow: #ffc107;
+  --accent-gold: #ffd700;
   --accent-blue: #238be6;
   --accent-blue-dark: #1565c0;
   --text-light: #f5f5f5;
-  --muted: rgba(255,255,255,0.6);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255,255,255,0.9);
+  --text-muted: rgba(255,255,255,0.9);
+  --muted: rgba(255,255,255,0.9);
   --border-color: rgba(255,255,255,0.1);
 }
 
@@ -84,7 +90,29 @@ p {
 .text-muted,
 .small.text-muted,
 small.text-muted {
-  color: rgba(255,255,255,0.88) !important;
+  color: rgba(255,255,255,0.9) !important;
+}
+
+/* Mejoras generales de contraste para elementos secundarios */
+.small, small {
+  color: rgba(255,255,255,0.75);
+}
+
+/* Forzar contraste alto para texto muted en foros */
+.forums-header .text-muted {
+  color: rgba(255,255,255,0.9) !important;
+}
+
+.badge {
+  color: rgba(255,255,255,0.9) !important;
+}
+
+.dropdown-item {
+  color: rgba(255,255,255,0.85);
+}
+
+.dropdown-item:hover {
+  color: rgba(255,255,255,0.95);
 }
 
 /* Links */
@@ -392,7 +420,13 @@ label {
 
 .navbar-collapse.show {
   display: block;
-  animation: mobileNavSlideDown 0.3s ease-out;
+}
+
+/* Mobile navbar animation - media query specific */
+@media (max-width: 991.98px) {
+  .navbar-collapse.show {
+    animation: mobileNavSlideDown 0.3s ease-out forwards;
+  }
 }
 
 @keyframes mobileNavSlideDown {
@@ -656,10 +690,7 @@ label {
 
 /* Additional Mobile Navbar Enhancements */
 @media (max-width: 991.98px) {
-  .navbar-collapse.show {
-    animation: mobileNavSlideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
+  /* Animation delays for nav links */
   .navbar-nav .nav-link:nth-child(1) { animation-delay: 0.1s; }
   .navbar-nav .nav-link:nth-child(2) { animation-delay: 0.15s; }
   .navbar-nav .nav-link:nth-child(3) { animation-delay: 0.2s; }
@@ -1191,7 +1222,7 @@ label {
 }
 
 .activity-time {
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.70);
   font-weight: 600;
   font-size: 0.8rem;
 }
@@ -1656,7 +1687,7 @@ label {
 .vote-btn {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.65);
   font-size: 20px;
   cursor: pointer;
   padding: 8px;
@@ -2165,7 +2196,7 @@ label {
 }
 
 .topic-author {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255,255,255,0.9) !important;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2190,12 +2221,12 @@ label {
 }
 
 .topic-time {
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.85);
   font-weight: 600;
 }
 
 .topic-title {
-  color: #fff;
+  color: #ffffff !important;
   font-size: 1.25rem;
   font-weight: 800;
   margin-bottom: 12px;
@@ -2208,7 +2239,7 @@ label {
 }
 
 .topic-description {
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.95) !important;
   font-size: 0.95rem;
   margin-bottom: 16px;
   line-height: 1.6;
@@ -2841,6 +2872,7 @@ label {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 100vh;
   min-width: 100vw;
+  overflow-y: auto;
 }
 
 .rf-modal {
@@ -3188,7 +3220,7 @@ label {
 
 .auth-modal .btn-primary:disabled {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.65);
   cursor: not-allowed;
   transform: none;
 }
@@ -4469,7 +4501,7 @@ label {
   max-width: 700px;
   width: 92%;
   max-height: 90vh;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   z-index: 1051;
@@ -4553,8 +4585,8 @@ label {
 
 .create-topic-modal .rf-modal-body {
   padding: 28px;
-  overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .create-topic-modal .rf-modal-body::-webkit-scrollbar {
@@ -4639,7 +4671,7 @@ label {
 
 .create-topic-modal .form-control::placeholder,
 .create-topic-modal textarea::placeholder {
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.55);
 }
 
 .create-topic-modal .form-control.is-invalid,
@@ -4659,7 +4691,7 @@ label {
 
 .create-topic-modal .form-text {
   display: block;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.65);
   font-size: 0.82rem;
   margin-top: 6px;
   font-weight: 600;
@@ -4767,6 +4799,10 @@ label {
 @media (max-width: 768px) {
   .create-topic-modal {
     max-width: 90%;
+    max-height: 85vh;
+    top: 7.5vh;
+    transform: translateX(-50%);
+    position: fixed;
   }
 
   .create-topic-modal .rf-modal-header {
@@ -4796,7 +4832,10 @@ label {
 @media (max-width: 480px) {
   .create-topic-modal {
     width: 96%;
-    max-height: 92vh;
+    max-height: 90vh;
+    top: 5vh;
+    transform: translateX(-50%);
+    position: fixed;
   }
 
   .create-topic-modal .rf-modal-header {
@@ -8575,5 +8614,49 @@ label {
   .enhanced-sort-controls {
     padding: 16px;
     margin: 12px 8px;
+  }
+}
+
+/* === MEJORAS DE CONTRASTE Y ANIMACIONES === */
+
+/* Asegurar que las animaciones funcionen en todos los navegadores */
+*, *::before, *::after {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000px;
+  perspective: 1000px;
+}
+
+/* Mejoras específicas para elementos interactivos */
+.btn:hover, .nav-link:hover, .dropdown-item:hover {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Asegurar que los modales tengan animaciones suaves */
+.modal.show {
+  -webkit-animation-fill-mode: forwards;
+  animation-fill-mode: forwards;
+}
+
+/* Mejorar el contraste en dispositivos móviles */
+@media (max-width: 768px) {
+  .text-muted, .small.text-muted, small.text-muted {
+    color: rgba(255,255,255,0.9) !important;
+  }
+  
+  .activity-time, .topic-time {
+    color: rgba(255,255,255,0.9) !important;
+  }
+}
+
+/* Fallback para navegadores que no soportan backdrop-filter */
+@supports not (backdrop-filter: blur(10px)) {
+  .navbar-custom {
+    background: rgba(0,0,0,0.9) !important;
+  }
+  
+  .card-custom {
+    background: rgba(17,17,17,0.95) !important;
   }
 }

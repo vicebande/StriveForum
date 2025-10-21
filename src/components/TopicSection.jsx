@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import PostModal from './modals/PostModal';
 import CreateTopicModal from './modals/CreateTopicModal';
 import PostThreadModal from './modals/PostThreadModal';
@@ -188,14 +188,40 @@ const safeParse = (raw, fallback) => {
 };
 
 const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
+  // Validación de props críticas
+  if (!currentTopicId) {
+    console.error('TopicSection: currentTopicId is required');
+    if (onNavigate && typeof onNavigate === 'function') {
+      onNavigate('forums');
+    }
+    return null;
+  }
+
   const getCurrentUser = useCallback(() => {
     try {
+      // Priorizar el user prop si está disponible
+      if (user && user.id) {
+        return user;
+      }
+      // Fallback a localStorage
       const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
       return session.user || null;
-    } catch {
+    } catch (error) {
+      console.warn('Error getting current user:', error);
       return null;
     }
-  }, []);
+  }, [user]);
+
+  // Helper para manejar notificaciones de forma segura
+  const safeNotify = useCallback((notification) => {
+    if (onNotify && typeof onNotify === 'function') {
+      try {
+        onNotify(notification);
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
+    }
+  }, [onNotify]);
 
   const [topics, setTopics] = useState(() => {
     const raw = localStorage.getItem(TOPICS_KEY);

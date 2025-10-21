@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const PostThreadModal = ({ show, onClose, onReply, replyingTo, onNotify }) => {
   const getCurrentUser = useCallback(() => {

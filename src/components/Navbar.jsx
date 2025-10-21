@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, onShowRegister }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -31,7 +31,13 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
   const handleMenuClick = (action) => {
     setShowProfileMenu(false);
     setMobileMenuOpen(false); // Cerrar menú móvil también
-    if (action) action();
+    if (action && typeof action === 'function') {
+      try {
+        action();
+      } catch (error) {
+        console.error('Error executing menu action:', error);
+      }
+    }
   };
 
   const toggleMobileMenu = () => {
@@ -40,7 +46,13 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
 
   const handleNavClick = (destination) => {
     setMobileMenuOpen(false);
-    onNavigate(destination);
+    if (onNavigate && typeof onNavigate === 'function') {
+      try {
+        onNavigate(destination);
+      } catch (error) {
+        console.error('Error navigating:', error);
+      }
+    }
   };
 
   return (
@@ -110,14 +122,14 @@ const Navbar = ({ onNavigate, isAuthenticated, username, onLogout, onShowLogin, 
                   onClick={toggleProfileMenu}
                 >
                   <div className="user-avatar">{username ? username[0].toUpperCase() : 'U'}</div>
-                  <span>{username}</span>
+                  <span>{username || 'Usuario'}</span>
                   <i className="fas fa-chevron-down dropdown-arrow"></i>
                 </div>
 
                 {showProfileMenu && (
                   <div className="profile-menu show">
                     <div className="profile-menu-header">
-                      <div className="user-name">{username}</div>
+                      <div className="user-name">{username || 'Usuario'}</div>
                       <div className="user-email">Miembro activo</div>
                     </div>
 

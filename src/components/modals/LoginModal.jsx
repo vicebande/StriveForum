@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
   const [username, setUsername] = useState('');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const StatCard = ({ icon, title, value, delta }) => (
   <div className="dashboard-stat-card card-custom">

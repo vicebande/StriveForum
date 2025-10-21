@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import DashboardSection from './components/DashboardSection';
@@ -209,21 +209,53 @@ const App = () => {
   // ===== NAVIGATION =====
   
   const showSection = useCallback((section) => {
-    setShowLogin(false);
-    setShowRegister(false);
+    try {
+      setShowLogin(false);
+      setShowRegister(false);
 
-    // Proteger rutas que requieren autenticación
-    if (section === 'dashboard' && !auth.isAuthenticated) {
-      setShowLogin(true);
+      // Validar el parámetro de sección
+      if (!section || typeof section !== 'string') {
+        console.error('Invalid section parameter:', section);
+        setCurrentSection('home');
+        return;
+      }
+
+      // Proteger rutas que requieren autenticación
+      if (section === 'dashboard' && !auth.isAuthenticated) {
+        setShowLogin(true);
+        addNotification({
+          type: 'warning',
+          title: 'Acceso restringido',
+          message: 'Debes iniciar sesión para acceder al Dashboard'
+        });
+        return;
+      }
+      
+      // Validar formato de topic
+      if (section.startsWith('topic:')) {
+        const topicId = section.split(':')[1];
+        if (!topicId || topicId.trim() === '') {
+          console.error('Invalid topic ID:', topicId);
+          setCurrentSection('forums');
+          addNotification({
+            type: 'error',
+            title: 'Error de navegación',
+            message: 'ID de topic inválido'
+          });
+          return;
+        }
+      }
+      
+      setCurrentSection(section);
+    } catch (error) {
+      console.error('Error in showSection:', error);
+      setCurrentSection('home');
       addNotification({
-        type: 'warning',
-        title: 'Acceso restringido',
-        message: 'Debes iniciar sesión para acceder al Dashboard'
+        type: 'error',
+        title: 'Error de navegación',
+        message: 'Ha ocurrido un error. Regresando al inicio.'
       });
-      return;
     }
-    
-    setCurrentSection(section);
   }, [auth.isAuthenticated, addNotification]);
 
   // ===== AUTH HANDLERS =====
