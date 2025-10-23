@@ -73,7 +73,7 @@ const PostThreadModal = ({ show, onClose, onReply, replyingTo, onNotify }) => {
       await onReply(content.trim());
       setContent('');
       setErrors({});
-    } catch (error) {
+    } catch {
       if (onNotify) {
         onNotify({
           type: 'error',

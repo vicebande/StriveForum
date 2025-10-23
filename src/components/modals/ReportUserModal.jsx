@@ -182,7 +182,7 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
                 <label className="form-label" htmlFor="reportReason">Motivo del reporte</label>
                 <select 
                   id="reportReason"
-                  className="form-control"
+                  className="form-control report-reason-select"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   required

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
   const [username, setUsername] = useState('');
@@ -44,10 +44,11 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
   useEffect(() => {
     // Calculate password strength
     let strength = 0;
-    if (password.length >= 8) strength += 25;
-    if (/[a-z]/.test(password)) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/\d/.test(password)) strength += 25;
+    if (password.length >= 8) strength += 20;
+    if (/[a-z]/.test(password)) strength += 20;
+    if (/[A-Z]/.test(password)) strength += 20;
+    if (/\d/.test(password)) strength += 20;
+    if (/[@$!%*?&]/.test(password)) strength += 20;
     setPasswordStrength(strength);
   }, [password]);
 
@@ -64,7 +65,7 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
     if (!email || !emailRegex.test(email)) e.email = 'Correo inválido. Usa formato usuario@dominio.ext';
     if (!password) e.password = 'Contraseña requerida.';
     else if (!strongPwdRegex.test(password)) {
-      e.password = 'Contraseña débil: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula y 1 número.';
+      e.password = 'Contraseña insegura: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&).';
     }
     if (confirm !== password) e.confirm = 'Las contraseñas no coinciden.';
     return e;
@@ -102,17 +103,19 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
   if (!show && !isAnimating) return null;
 
   const getPasswordStrengthColor = () => {
-    if (passwordStrength <= 25) return '#dc3545';
-    if (passwordStrength <= 50) return '#fd7e14';
-    if (passwordStrength <= 75) return '#ffc107';
-    return '#28a745';
+    if (passwordStrength <= 20) return '#dc3545';  // Rojo - Muy débil
+    if (passwordStrength <= 40) return '#fd7e14';  // Naranja - Débil
+    if (passwordStrength <= 60) return '#ffc107';  // Amarillo - Regular
+    if (passwordStrength <= 80) return '#20c997';  // Verde azulado - Buena
+    return '#28a745';                              // Verde - Muy segura
   };
 
   const getPasswordStrengthText = () => {
-    if (passwordStrength <= 25) return 'Muy débil';
-    if (passwordStrength <= 50) return 'Débil';
-    if (passwordStrength <= 75) return 'Media';
-    return 'Fuerte';
+    if (passwordStrength <= 20) return 'Muy débil';
+    if (passwordStrength <= 40) return 'Débil';
+    if (passwordStrength <= 60) return 'Regular';
+    if (passwordStrength <= 80) return 'Buena';
+    return 'Muy segura';
   };
 
   return (
@@ -164,22 +167,46 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
                 onChange={(e) => setPassword(e.target.value)} 
               />
               {password && (
-                <div className="password-strength-indicator mt-2">
-                  <div className="strength-bar">
-                    <div 
-                      className="strength-fill"
-                      style={{ 
-                        width: `${passwordStrength}%`,
-                        backgroundColor: getPasswordStrengthColor(),
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
+                <div className="password-validation mt-2">
+                  <div className="password-strength-indicator mb-2">
+                    <div className="strength-bar">
+                      <div 
+                        className="strength-fill"
+                        style={{ 
+                          width: `${passwordStrength}%`,
+                          backgroundColor: getPasswordStrengthColor(),
+                          transition: 'all 0.3s ease'
+                        }}
+                      />
+                    </div>
+                    <small className="text-muted">
+                      Fuerza: <span style={{ color: getPasswordStrengthColor(), fontWeight: '600' }}>
+                        {getPasswordStrengthText()}
+                      </span>
+                    </small>
                   </div>
-                  <small className="text-muted">
-                    Fuerza: <span style={{ color: getPasswordStrengthColor(), fontWeight: '600' }}>
-                      {getPasswordStrengthText()}
-                    </span>
-                  </small>
+                  <div className="password-requirements">
+                    <div className={`requirement ${password.length >= 8 ? 'met' : 'unmet'}`}>
+                      <i className={`fas ${password.length >= 8 ? 'fa-check' : 'fa-times'}`}></i>
+                      <span>Mínimo 8 caracteres</span>
+                    </div>
+                    <div className={`requirement ${/[a-z]/.test(password) ? 'met' : 'unmet'}`}>
+                      <i className={`fas ${/[a-z]/.test(password) ? 'fa-check' : 'fa-times'}`}></i>
+                      <span>Al menos una minúscula</span>
+                    </div>
+                    <div className={`requirement ${/[A-Z]/.test(password) ? 'met' : 'unmet'}`}>
+                      <i className={`fas ${/[A-Z]/.test(password) ? 'fa-check' : 'fa-times'}`}></i>
+                      <span>Al menos una mayúscula</span>
+                    </div>
+                    <div className={`requirement ${/\d/.test(password) ? 'met' : 'unmet'}`}>
+                      <i className={`fas ${/\d/.test(password) ? 'fa-check' : 'fa-times'}`}></i>
+                      <span>Al menos un número</span>
+                    </div>
+                    <div className={`requirement ${/[@$!%*?&]/.test(password) ? 'met' : 'unmet'}`}>
+                      <i className={`fas ${/[@$!%*?&]/.test(password) ? 'fa-check' : 'fa-times'}`}></i>
+                      <span>Al menos un carácter especial (@$!%*?&)</span>
+                    </div>
+                  </div>
                 </div>
               )}
               {errors.password && <div className="invalid-feedback">{errors.password}</div>}
@@ -199,7 +226,7 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
             </div>
 
             <div className="small text-muted" style={{fontSize: '0.85rem', lineHeight: '1.5'}}>
-              <i className="fas fa-info-circle" style={{color: 'var(--accent-blue)'}}></i> La contraseña debe tener mínimo 8 caracteres, incluir mayúsculas, minúsculas y números.
+              <i className="fas fa-info-circle" style={{color: 'var(--accent-blue)'}}></i> La contraseña debe tener mínimo 8 caracteres, incluir mayúsculas, minúsculas, números y caracteres especiales (@$!%*?&).
             </div>
           </div>
 

@@ -100,13 +100,13 @@ const RecentActivity = ({ onNavigate, items }) => {
       <ul className="activity-list" style={{listStyle:'none', padding:0, margin:0}}>
         {activities.length > 0 ? (
           activities.map(activity => (
-            <li key={activity.id} className="activity-item" onClick={(e)=>handleClick(e, activity)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleClick(e,activity); }}>
-              <div className="activity-avatar">
-                {activity.type === 'reply' ? '↩' : activity.type === 'topic' ? '📝' : '💬'}
-              </div>
-              <div className="activity-body">
-                <div className="activity-title">{activity.title}</div>
-                <div className="activity-meta">{activity.meta} · <span className="activity-time">{getTimeAgo(activity.time)}</span></div>
+            <li key={activity.id} className="activity-item minimal" onClick={(e)=>handleClick(e, activity)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleClick(e,activity); }}>
+              <div className="activity-content">
+                <div className="activity-header">
+                  <div className="activity-title">{activity.title}</div>
+                  <div className="activity-time">{getTimeAgo(activity.time)}</div>
+                </div>
+                <div className="activity-meta">{activity.meta}</div>
               </div>
             </li>
           ))

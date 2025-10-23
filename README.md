@@ -8,14 +8,16 @@ StriveForum es una aplicación web moderna (SPA) desarrollada en React con Vite,
 - 🎮 Foros especializados en juegos de pelea (GGST, SF6)
 - 🎓 Centro de aprendizaje con recursos externos
 - 👤 Sistema de autenticación completo con persistencia
-- 📊 Dashboard interactivo con estadísticas relevantes al foro
+- � Validación de contraseña segura con requisitos estrictos
+- 🚫 Sistema de bloqueo y moderación de usuarios
+- �📊 Dashboard interactivo con estadísticas relevantes al foro
 - 💬 Sistema completo de posts y respuestas con votaciones inteligentes
 - 🛠️ Gestión de topics con creación y eliminación segura
-- �‍💼 Panel de administración completo con gestión de reportes
+- 👨‍💼 Panel de administración completo con gestión de reportes
 - 🚨 Sistema de reportes para usuarios y respuestas
 - 📊 Actividad de usuarios en tiempo real con datos completos
 - 🔍 Filtros avanzados por fecha, tipo y estado en AdminPanel
-- �📱 Diseño completamente responsivo con tema oscuro
+- 📱 Diseño completamente responsivo con tema oscuro
 - 🎨 Interfaz moderna con glassmorphism y animaciones suaves
 - 🔒 Sistema de seguridad con confirmaciones y validaciones
 - ⚡ Desarrollo rápido con Vite HMR (Hot Module Replacement)
@@ -23,10 +25,10 @@ StriveForum es una aplicación web moderna (SPA) desarrollada en React con Vite,
 ## 🚀 Tecnologías Utilizadas
 
 - **React 18.2.0** - Biblioteca de JavaScript para interfaces de usuario
-- **Vite 5.0.8** - Herramienta de build rápida y servidor de desarrollo
+- **Vite 5.4.10** - Herramienta de build rápida y servidor de desarrollo
 - **Bootstrap 5.3.7** - Framework CSS para diseño responsivo
 - **FontAwesome 6.4.0** - Iconografía moderna
-- **ESLint** - Linter para mantener código limpio
+- **ESLint 9.38.0** - Linter para mantener código limpio con configuración moderna
 
 ## 🏗️ Estructura del Proyecto
 
@@ -72,9 +74,12 @@ StriveForum/
 
 ## ✨ Características Implementadas
 
-### � Sistema de Autenticación y Roles
+### 🔐 Sistema de Autenticación y Seguridad
 - **Registro e inicio de sesión** con validación completa
+- **Contraseñas seguras**: Mínimo 8 caracteres, mayúscula, número y carácter especial
+- **Indicador visual de fortaleza** con requisitos interactivos
 - **Sistema de roles**: admin, moderator, user
+- **Sistema de bloqueo de usuarios** con ocultación de contenido
 - **Persistencia de sesión** en localStorage
 - **Validación de usuarios únicos** y emails válidos
 - **Estados de autenticación** que controlan el acceso a funcionalidades
@@ -124,6 +129,8 @@ StriveForum/
 
 ### 👨‍💼 Panel de Administración Avanzado
 - **Gestión de reportes completa** con filtros por tipo, fecha y estado
+- **Sistema de bloqueo/desbloqueo** de usuarios con un clic
+- **Ocultación automática** de contenido de usuarios bloqueados
 - **Visualización de actividad de usuarios** con historial detallado
 - **Sistema de reportes** para posts, respuestas y comportamiento
 - **Filtros inteligentes** por fecha, tipo de reporte y usuario reportado
@@ -134,23 +141,28 @@ StriveForum/
 - **Tipos de reporte**: Spam, Acoso, Contenido inapropiado, Lenguaje ofensivo
 
 ### 🔧 Sistema Técnico Avanzado
-- **Persistencia completa** en localStorage (sf_topics, sf_postsMap, sf_user_votes)
+- **Persistencia completa** en localStorage con estructura organizada
+- **Sistema de filtrado de contenido** para usuarios bloqueados
 - **Sistema de notificaciones** toast con diferentes tipos y animaciones
 - **Validaciones robustas** en tiempo real con feedback visual
 - **Sistema de debounce** para prevenir spam en votaciones
 - **Modales con glassmorphism** y animaciones CSS3 avanzadas
+- **Diseño responsive optimizado** para dispositivos móviles
 - **Tema oscuro consistente** con variables CSS y gradientes
 - **Estados de carga** y progress indicators
 - **Manejo de errores** completo con rollback automático
 - **Código limpio** con hooks personalizados y componentes reutilizables
 
 ### 🔒 Seguridad y UX
+- **Contraseñas robustas** con validación de complejidad en tiempo real
+- **Sistema de moderación** con bloqueo de usuarios y filtrado de contenido
 - **Confirmaciones críticas** para acciones destructivas (eliminar topics)
 - **Validación de permisos** por autor en tiempo real  
 - **Anti-spam system** con limitación temporal de acciones
 - **Sanitización de inputs** y validación de formularios
 - **Estados UI reactivos** que reflejan permisos del usuario
 - **Feedback inmediato** en todas las interacciones
+- **Diseño minimalista** optimizado para móviles
 
 ## Cómo ejecutar
 
@@ -198,6 +210,22 @@ StriveForum/
 
 ## 🛠️ Funcionalidades Técnicas Destacadas
 
+### 🔐 Sistema de Seguridad Avanzado
+```javascript
+// Validación de contraseña robusta
+const passwordRequirements = {
+  minLength: 8,
+  hasUppercase: /[A-Z]/.test(password),
+  hasNumber: /\d/.test(password),
+  hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+};
+
+// Sistema de bloqueo de usuarios
+// Administradores pueden bloquear/desbloquear usuarios
+// Contenido de usuarios bloqueados se oculta automáticamente
+// Filtrado en tiempo real en foros y topics
+```
+
 ### Sistema de Reportes y Moderación
 ```javascript
 // Reportes de usuarios, posts y respuestas
@@ -230,11 +258,12 @@ StriveForum/
 // - sf_topics: Lista de topics
 // - sf_postsMap: Posts organizados por topic con respuestas anidadas
 // - sf_user_votes: Control de votaciones por usuario
-// - sf_users: Usuarios registrados con roles
+// - sf_registered_users: Usuarios registrados con roles y estado de bloqueo
 // - sf_reports: Sistema de reportes con timestamps y estado
 // - sf_user_likes: Sistema de likes para respuestas
 // - sf_auth_session: Sesión activa del usuario
 // - sf_report_cooldowns: Control de cooldown para reportes
+// - sf_blocked_users: Lista de usuarios bloqueados por administradores
 ```
 
 ## 📝 Notas para Desarrolladores
@@ -278,9 +307,10 @@ Este proyecto ha sido migrado exitosamente de Create React App a Vite, incluyend
 - **Punto de entrada**: `main.jsx` optimizado para Vite
 - **HTML principal**: `index.html` movido a la raíz del proyecto
 - **Imports optimizados**: Bootstrap y FontAwesome como ES modules
-- **ESLint configurado**: `.eslintrc.cjs` específico para React + Vite
+- **ESLint 9.x**: Configuración moderna con flat config (eslint.config.js)
 - **Build de producción**: Optimización automática con tree-shaking
 - **Hot Module Replacement**: Desarrollo más rápido con HMR
+- **Seguridad mejorada**: Sistema de validación y moderación robusto
 
 ### 🎯 Beneficios obtenidos:
 - **Startup más rápido**: ~3x más rápido que CRA

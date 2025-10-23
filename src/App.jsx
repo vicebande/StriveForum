@@ -230,7 +230,7 @@ const App = () => {
         title: 'Sesión cerrada',
         message: 'Has cerrado sesión correctamente'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',

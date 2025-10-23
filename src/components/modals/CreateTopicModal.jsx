@@ -76,11 +76,9 @@ const CreateTopicModal = ({ show, onClose, onCreateTopic, onNotify }) => {
           <div className="rf-modal-body">
             <div className="mb-3">
               <label className="form-label" htmlFor="topicCategory"><i className="fas fa-folder"></i> Categoría</label>
-              <select id="topicCategory" className="form-control" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <select id="topicCategory" className="form-control topic-category-select" value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option value="general">💬 General</option>
                 <option value="estrategias">🎯 Estrategias</option>
-                <option value="armas">🔫 Armas y Equipamiento</option>
-                <option value="mapas">🗺️ Mapas</option>
                 <option value="competitivo">🏆 Competitivo</option>
                 <option value="casual">🎮 Casual</option>
                 <option value="bugs">🐛 Bugs y Problemas</option>

@@ -238,11 +238,11 @@ export const getUserActivityHistory = (username) => {
     activity.push({
       type: 'topic_created',
       id: topic.id,
-      title: topic.title,
-      content: topic.content || 'Sin contenido',
+      title: topic.title || 'Sin título',
+      content: topic.content || topic.description || 'Sin contenido',
       category: topic.category || 'General',
-      timestamp: topic.createdAt,
-      replies: topic.replies || 0,
+      timestamp: topic.createdAt || Date.now(),
+      replies: Number.isInteger(topic.replies) ? topic.replies : 0,
       data: topic
     });
   });
@@ -252,29 +252,31 @@ export const getUserActivityHistory = (username) => {
     if (Array.isArray(posts)) {
       posts.filter(p => p.author === username).forEach(post => {
         const topic = topics.find(t => t.id === parseInt(topicId));
+        const parsedTopicId = parseInt(topicId);
         activity.push({
           type: 'post_created', 
           id: post.id,
           title: topic?.title || 'Topic no encontrado',
           content: post.content || post.message || 'Sin contenido',
-          timestamp: post.createdAt,
-          topicId: parseInt(topicId),
-          topicTitle: topic?.title,
+          timestamp: post.createdAt || Date.now(),
+          topicId: Number.isInteger(parsedTopicId) ? parsedTopicId : null,
+          topicTitle: topic?.title || 'Topic no encontrado',
           data: post
         });
         
         // Agregar respuestas del usuario a este post
         if (post.replies && Array.isArray(post.replies)) {
           post.replies.filter(r => r.author === username).forEach(reply => {
+            const parsedTopicId = parseInt(topicId);
             activity.push({
               type: 'reply_created',
               id: reply.id,
               title: `Respuesta en: ${topic?.title || 'Topic no encontrado'}`,
               content: reply.content || 'Sin contenido',
-              timestamp: reply.createdAt,
-              topicId: parseInt(topicId),
+              timestamp: reply.createdAt || Date.now(),
+              topicId: Number.isInteger(parsedTopicId) ? parsedTopicId : null,
               postId: post.id,
-              topicTitle: topic?.title,
+              topicTitle: topic?.title || 'Topic no encontrado',
               data: reply
             });
           });
@@ -387,4 +389,64 @@ export const filterVisibleContent = (content, currentUser = null) => {
   }
   
   return content;
+};
+
+// Verificar si un usuario puede realizar acciones (crear, votar, etc.)
+export const canUserPerformActions = (username) => {
+  if (!username) return false;
+  return !isUserBlocked(username);
+};
+
+// Filtrar topics visibles (excluir de usuarios bloqueados)
+export const getVisibleTopics = (currentUser = null) => {
+  const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+  return filterVisibleContent(topics, currentUser);
+};
+
+// Filtrar posts visibles por topic
+export const getVisiblePosts = (topicId, currentUser = null) => {
+  const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+  const posts = postsMap[topicId] || [];
+  
+  if (!Array.isArray(posts)) return [];
+  
+  // Filtrar posts principales y sus respuestas
+  return posts.filter(post => {
+    // Si el post es de usuario bloqueado, ocultarlo (excepto para admins)
+    if (post.author && isUserBlocked(post.author) && (!currentUser || !isAdmin(currentUser))) {
+      return false;
+    }
+    
+    // Filtrar respuestas de usuarios bloqueados
+    if (post.replies && Array.isArray(post.replies)) {
+      post.replies = post.replies.filter(reply => {
+        return !reply.author || !isUserBlocked(reply.author) || (currentUser && isAdmin(currentUser));
+      });
+    }
+    
+    return true;
+  });
+};
+
+// Verificar permisos específicos para usuario bloqueado
+export const checkUserPermission = (username, action) => {
+  if (!username) return false;
+  
+  // Usuario bloqueado no puede realizar ninguna acción
+  if (isUserBlocked(username)) {
+    return false;
+  }
+  
+  // Acciones permitidas para usuarios no bloqueados
+  const allowedActions = [
+    'CREATE_TOPIC',
+    'CREATE_POST', 
+    'REPLY_POST',
+    'VOTE_TOPIC',
+    'VOTE_POST',
+    'REPORT_USER',
+    'EDIT_PROFILE'
+  ];
+  
+  return allowedActions.includes(action);
 };

@@ -20,7 +20,7 @@ const AdminPanel = ({ user, onNotify }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('recent');
+  // const [sortBy, setSortBy] = useState('recent'); // TODO: Implement sorting functionality
   const [selectedUser, setSelectedUser] = useState(null);
   const [userActivity, setUserActivity] = useState([]);
 
@@ -95,8 +95,9 @@ const AdminPanel = ({ user, onNotify }) => {
 
   // Filtrar datos según búsqueda y filtros
   const filteredReports = reports.filter(report => {
-    const matchesSearch = report.reportedUsername.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.reporterUsername.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = report.reportedUsername.toLowerCase().includes(searchLower) ||
+                         report.reporterUsername.toLowerCase().includes(searchLower);
     const matchesFilter = filterType === 'all' || report.reason === filterType;
     
     // Filtro por fecha
@@ -109,14 +110,16 @@ const AdminPanel = ({ user, onNotify }) => {
         case 'today':
           matchesDate = reportDate.toDateString() === today.toDateString();
           break;
-        case 'week':
+        case 'week': {
           const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
           matchesDate = reportDate >= weekAgo;
           break;
-        case 'month':
+        }
+        case 'month': {
           const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
           matchesDate = reportDate >= monthAgo;
           break;
+        }
         default:
           matchesDate = true;
       }
@@ -363,15 +366,15 @@ const AdminPanel = ({ user, onNotify }) => {
                       <div className="card-body">
                         <div className="user-stats-grid">
                           <div className="user-stat">
-                            <span className="stat-number">{getUserTopicCount(u.username)}</span>
+                            <span className="stat-number">{getUserTopicCount(u.username) || 0}</span>
                             <span className="stat-label">Topics</span>
                           </div>
                           <div className="user-stat">
-                            <span className="stat-number">{getUserPostCount(u.username)}</span>
+                            <span className="stat-number">{getUserPostCount(u.username) || 0}</span>
                             <span className="stat-label">Posts</span>
                           </div>
                           <div className="user-stat">
-                            <span className="stat-number">{getUserReports(u.username).length}</span>
+                            <span className="stat-number">{getUserReports(u.username)?.length || 0}</span>
                             <span className="stat-label">Reportes</span>
                           </div>
                         </div>
@@ -546,7 +549,7 @@ const AdminPanel = ({ user, onNotify }) => {
                           <i className="fas fa-comments"></i>
                         </div>
                         <div className="stat-info">
-                          <span className="stat-number">{selectedUser.topicsCreated}</span>
+                          <span className="stat-number">{selectedUser.topicsCreated || 0}</span>
                           <span className="stat-label">Topics creados</span>
                         </div>
                       </div>
@@ -556,7 +559,7 @@ const AdminPanel = ({ user, onNotify }) => {
                           <i className="fas fa-reply"></i>
                         </div>
                         <div className="stat-info">
-                          <span className="stat-number">{selectedUser.postsCreated}</span>
+                          <span className="stat-number">{selectedUser.postsCreated || 0}</span>
                           <span className="stat-label">Posts/Respuestas</span>
                         </div>
                       </div>
@@ -576,7 +579,12 @@ const AdminPanel = ({ user, onNotify }) => {
                           <i className="fas fa-calendar-alt"></i>
                         </div>
                         <div className="stat-info">
-                          <span className="stat-number">{new Date(selectedUser.registeredAt).toLocaleDateString()}</span>
+                          <span className="stat-number">
+                            {selectedUser.registeredAt ? 
+                              new Date(selectedUser.registeredAt).toLocaleDateString() : 
+                              'Fecha no disponible'
+                            }
+                          </span>
                           <span className="stat-label">Fecha de registro</span>
                         </div>
                       </div>
@@ -706,14 +714,14 @@ const AdminPanel = ({ user, onNotify }) => {
                                   <>
                                     <span className="stat-item">
                                       <i className="fas fa-replies"></i>
-                                      {activity.replies || 0} respuestas
+                                      {Number.isInteger(activity.replies) ? activity.replies : 0} respuestas
                                     </span>
                                   </>
                                 )}
                                 {activity.type === 'post_created' && activity.topicId && (
                                   <span className="stat-item">
                                     <i className="fas fa-link"></i>
-                                    ID del Topic: {activity.topicId}
+                                    ID del Topic: {Number.isInteger(activity.topicId) ? activity.topicId : 'N/A'}
                                   </span>
                                 )}
                                 {activity.type === 'reported' && activity.reason && (

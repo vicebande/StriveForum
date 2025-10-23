@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import CreateTopicModal from './modals/CreateTopicModal';
+import { getVisibleTopics, checkUserPermission, isUserBlocked } from '../utils/roleUtils';
 
 const ForumsSection = ({ onNotify, onNavigate }) => {
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
@@ -48,11 +49,27 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
 
   const [topics, setTopics] = useState(() => {
     try {
-      // Limpiar localStorage para forzar el uso de initialTopics actualizados
-      localStorage.removeItem('sf_topics');
-      localStorage.setItem('sf_topics', JSON.stringify(initialTopics));
-      console.log('Topics inicializados:', initialTopics);
-      return initialTopics;
+      // Cargar topics existentes o usar iniciales
+      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      if (storedTopics.length === 0) {
+        localStorage.setItem('sf_topics', JSON.stringify(initialTopics));
+        console.log('Topics inicializados:', initialTopics);
+        return initialTopics;
+      }
+      
+      // Filtrar topics de usuarios bloqueados
+      const currentUser = (() => {
+        try {
+          const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
+          return session.user || null;
+        } catch {
+          return null;
+        }
+      })();
+      
+      const visibleTopics = getVisibleTopics(currentUser);
+      console.log('Topics visibles cargados:', visibleTopics.length);
+      return visibleTopics;
     } catch {
       return initialTopics;
     }
@@ -147,6 +164,26 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       return;
     }
 
+    // Verificar si el usuario está bloqueado
+    if (isUserBlocked(currentUser.username)) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Cuenta suspendida',
+        message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+      });
+      return;
+    }
+
+    // Verificar permisos específicos
+    if (!checkUserPermission(currentUser.username, 'CREATE_TOPIC')) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Sin permisos',
+        message: 'No tienes permisos para crear topics'
+      });
+      return;
+    }
+
     // Generar ID único para el topic
     const topicId = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     
@@ -224,6 +261,30 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
           type: 'warning',
           title: 'Acceso requerido',
           message: 'Debes iniciar sesión para votar'
+        });
+      }
+      return;
+    }
+
+    // Verificar si el usuario está bloqueado
+    if (isUserBlocked(currentUser.username)) {
+      if (onNotify && typeof onNotify === 'function') {
+        onNotify({
+          type: 'error',
+          title: 'Cuenta suspendida',
+          message: 'Tu cuenta ha sido suspendida y no puedes votar'
+        });
+      }
+      return;
+    }
+
+    // Verificar permisos específicos
+    if (!checkUserPermission(currentUser.username, 'VOTE_TOPIC')) {
+      if (onNotify && typeof onNotify === 'function') {
+        onNotify({
+          type: 'error',
+          title: 'Sin permisos',
+          message: 'No tienes permisos para votar'
         });
       }
       return;
@@ -460,6 +521,17 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
               });
               return;
             }
+            
+            // Verificar si el usuario está bloqueado
+            if (isUserBlocked(currentUser.username)) {
+              if (onNotify) onNotify({
+                type: 'error',
+                title: 'Cuenta suspendida',
+                message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+              });
+              return;
+            }
+            
             setShowCreateModal(true);
           }}>
             <i className="fas fa-plus me-2" aria-hidden="true"></i> Crear Topic

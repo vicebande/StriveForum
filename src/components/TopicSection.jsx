@@ -5,7 +5,7 @@ import PostThreadModal from './modals/PostThreadModal';
 import NewPostModal from './modals/NewPostModal';
 import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
-import { isUserBlocked } from '../utils/roleUtils';
+import { isUserBlocked, getVisiblePosts, checkUserPermission } from '../utils/roleUtils';
 
 const fakeTopics = [
   {
@@ -267,11 +267,11 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   }, [currentTopicId, topic, onNavigate]);
 
   useEffect(() => {
-    try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch (err) { /* ignore */ }
+    try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch { /* ignore */ }
   }, [topics]);
 
   useEffect(() => {
-    try { localStorage.setItem(POSTS_KEY, JSON.stringify(postsMap)); } catch (err) { /* ignore */ }
+    try { localStorage.setItem(POSTS_KEY, JSON.stringify(postsMap)); } catch { /* ignore */ }
   }, [postsMap]);
 
   useEffect(() => {
@@ -287,7 +287,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
           setShowThreadModal(true);
         }
       }
-    } catch (err) { /* ignore */ }
+    } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTopicId]);
 
@@ -298,8 +298,23 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       } else {
         localStorage.removeItem(ACTIVE_THREAD_KEY);
       }
-    } catch (err) { /* ignore */ }
+    } catch { /* ignore */ }
   }, [showThreadModal, activeThreadPost, currentTopicId]);
+
+  // Obtener posts visibles (filtrar contenido de usuarios bloqueados) - ANTES de validaciones
+  const posts = useMemo(() => {
+    if (!currentTopicId) return [];
+    const currentUser = user || (() => {
+      try {
+        const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
+        return session.user || null;
+      } catch {
+        return null;
+      }
+    })();
+    
+    return getVisiblePosts(currentTopicId, currentUser);
+  }, [currentTopicId, user]);
 
   // Validación de props críticas después de todos los hooks
   if (!currentTopicId) {
@@ -346,13 +361,34 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const openNewPost = () => {
     const currentUser = getCurrentUser();
     if (!currentUser) {
-      if (onNotify) onNotify({
+      safeNotify({
         type: 'warning',
         title: 'Acceso requerido',
         message: 'Debes iniciar sesión para crear un post'
       });
       return;
     }
+
+    // Verificar si el usuario está bloqueado
+    if (isUserBlocked(currentUser.username)) {
+      safeNotify({
+        type: 'error',
+        title: 'Cuenta suspendida',
+        message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+      });
+      return;
+    }
+
+    // Verificar permisos específicos
+    if (!checkUserPermission(currentUser.username, 'CREATE_POST')) {
+      safeNotify({
+        type: 'error',
+        title: 'Sin permisos',
+        message: 'No tienes permisos para crear posts'
+      });
+      return;
+    }
+    
     setShowNewPostModal(true);
   };
   const openThread = (post) => {
@@ -400,6 +436,28 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   };
 
   const handleCreateTopic = ({ title, description, message }) => {
+    const currentUser = getCurrentUser();
+    
+    // Verificar si el usuario está bloqueado
+    if (currentUser && isUserBlocked(currentUser.username)) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Cuenta suspendida',
+        message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+      });
+      return;
+    }
+
+    // Verificar permisos específicos
+    if (currentUser && !checkUserPermission(currentUser.username, 'CREATE_TOPIC')) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Sin permisos',
+        message: 'No tienes permisos para crear topics'
+      });
+      return;
+    }
+    
     const id = 't' + (Date.now().toString(36).slice(-6));
     const newTopic = { 
       id, 
@@ -431,6 +489,28 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const handleReplySubmit = ({ message }) => {
     if (!currentTopicId) {
       if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'No hay topic seleccionado.' });
+      return;
+    }
+
+    const currentUser = getCurrentUser();
+    
+    // Verificar si el usuario está bloqueado
+    if (currentUser && isUserBlocked(currentUser.username)) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Cuenta suspendida',
+        message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+      });
+      return;
+    }
+
+    // Verificar permisos específicos
+    if (currentUser && !checkUserPermission(currentUser.username, 'CREATE_POST')) {
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Sin permisos',
+        message: 'No tienes permisos para crear posts'
+      });
       return;
     }
 
@@ -553,8 +633,6 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       </section>
     );
   }
-
-  const posts = postsMap[currentTopicId] || [];
 
   // Vista dentro de un topic (mejorada)
   return (

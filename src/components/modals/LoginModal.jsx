@@ -112,10 +112,6 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
               />
               {errors.password && <div className="invalid-feedback">{errors.password}</div>}
             </div>
-
-            <div className="small text-muted" style={{fontSize: '0.85rem'}}>
-              <i className="fas fa-info-circle" style={{color: 'var(--accent-blue)'}}></i> Demo: usa "admin" / "admin" para acceso de administrador
-            </div>
           </div>
 
           <div className="rf-modal-footer">
