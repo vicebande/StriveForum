@@ -42,8 +42,17 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
 
   const validate = () => {
     const e = {};
-    if (!username || username.trim().length < 2) e.username = 'Usuario requerido (mín. 2 caracteres).';
-    if (!password || password.length < 4) e.password = 'Contraseña requerida (mín. 4 caracteres).';
+    
+    // Validación de usuario
+    if (!username || username.trim().length < 2) {
+      e.username = 'Usuario requerido (mín. 2 caracteres).';
+    }
+    
+    // Validación básica de contraseña - solo verificar que no esté vacía
+    if (!password || password.trim().length === 0) {
+      e.password = 'Contraseña requerida.';
+    }
+    
     return e;
   };
 
@@ -111,6 +120,10 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
                 autoComplete="current-password"
               />
               {errors.password && <div className="invalid-feedback">{errors.password}</div>}
+            </div>
+
+            <div className="small text-muted" style={{fontSize: '0.85rem', lineHeight: '1.5'}}>
+              <i className="fas fa-info-circle" style={{color: 'var(--accent-blue)'}}></i> Solo puedes iniciar sesión con cuentas previamente registradas. Si no tienes cuenta, regístrate primero.
             </div>
           </div>
 

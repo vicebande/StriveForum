@@ -80,7 +80,7 @@ const DeleteTopicModal = ({ show, onClose, onDeleteTopic, topicTitle, onNotify }
             </div>
           </div>
           <button 
-            className="btn-close modern-close" 
+            className="modern-close" 
             aria-label="Cerrar" 
             onClick={onClose}
             disabled={isDeleting}

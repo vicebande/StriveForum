@@ -22,7 +22,7 @@ const AuthService = {
       setTimeout(() => {
         const { username, password } = credentials;
         
-        // Mock de validación (admin/admin tiene rol admin)
+        // Caso especial: admin (no necesita estar registrado)
         if (username.toLowerCase() === 'admin' && password === 'admin') {
           resolve({
             success: true,
@@ -36,23 +36,37 @@ const AuthService = {
             },
             token: 'mock_jwt_token_admin_' + Date.now()
           });
-        } else if (username && password) {
-          // Cualquier otro usuario válido
-          resolve({
-            success: true,
-            user: {
-              id: 'user_' + Date.now(),
-              username: username,
-              email: `${username}@example.com`,
-              role: 'user',
-              avatar: null,
-              createdAt: new Date().toISOString(),
-            },
-            token: 'mock_jwt_token_' + Date.now()
-          });
-        } else {
-          reject({ message: 'Credenciales inválidas' });
+          return;
         }
+        
+        // Verificar que el usuario esté registrado
+        const registeredUsers = JSON.parse(localStorage.getItem('sf_registered_users') || '[]');
+        const existingUser = registeredUsers.find(u => 
+          u.username.toLowerCase() === username.toLowerCase()
+        );
+        
+        if (!existingUser) {
+          reject({ message: 'Usuario no registrado. Debes crear una cuenta primero.' });
+          return;
+        }
+        
+        // Para el mock, cualquier contraseña que cumpla los requisitos es válida
+        // En un sistema real, aquí se verificaría contra la contraseña hash almacenada
+        const strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!strongPwdRegex.test(password)) {
+          reject({ message: 'Contraseña inválida. Debe cumplir con los requisitos de seguridad.' });
+          return;
+        }
+        
+        // Login exitoso para usuario registrado
+        resolve({
+          success: true,
+          user: {
+            ...existingUser,
+            // Mantener la información actualizada del usuario registrado
+          },
+          token: 'mock_jwt_token_' + Date.now()
+        });
       }, 800); // Simula latencia de red
     });
   },

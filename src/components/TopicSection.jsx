@@ -5,7 +5,7 @@ import PostThreadModal from './modals/PostThreadModal';
 import NewPostModal from './modals/NewPostModal';
 import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
-import { isUserBlocked, getVisiblePosts, checkUserPermission } from '../utils/roleUtils';
+import { isUserBlocked, checkUserPermission, isAdmin } from '../utils/roleUtils';
 
 const fakeTopics = [
   {
@@ -236,6 +236,12 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
+  const [updateTrigger, setUpdateTrigger] = useState(0); // Estado para forzar actualizaciones
+
+  // Función para forzar actualización
+  const forceUpdate = useCallback(() => {
+    setUpdateTrigger(prev => prev + 1);
+  }, []);
 
   const topic = useMemo(() => {
     if (!currentTopicId) return null;
@@ -313,8 +319,29 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       }
     })();
     
-    return getVisiblePosts(currentTopicId, currentUser);
-  }, [currentTopicId, user]);
+    // Usar el estado actual de postsMap en lugar de localStorage
+    const currentPosts = postsMap[currentTopicId] || [];
+    
+    if (!Array.isArray(currentPosts)) return [];
+    
+    // Filtrar posts principales y sus respuestas usando la misma lógica que getVisiblePosts
+    return currentPosts.filter(post => {
+      // Si el post es de usuario bloqueado, ocultarlo (excepto para admins)
+      if (post.author && isUserBlocked(post.author) && (!currentUser || !isAdmin(currentUser))) {
+        return false;
+      }
+      
+      // Filtrar respuestas de usuarios bloqueados
+      if (post.replies && Array.isArray(post.replies)) {
+        post.replies = post.replies.filter(reply => {
+          return !reply.author || !isUserBlocked(reply.author) || (currentUser && isAdmin(currentUser));
+        });
+      }
+      
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTopicId, user, postsMap, updateTrigger]); // updateTrigger usado intencionalmente para forzar actualizaciones
 
   // Validación de props críticas después de todos los hooks
   if (!currentTopicId) {
@@ -543,6 +570,14 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
         };
         copy[currentTopicId] = [newPost, ...(copy[currentTopicId] || [])];
       }
+      
+      // Actualizar localStorage inmediatamente para sincronización
+      try {
+        localStorage.setItem(POSTS_KEY, JSON.stringify(copy));
+      } catch (error) {
+        console.warn('Error saving to localStorage:', error);
+      }
+      
       return copy;
     });
 
@@ -554,6 +589,10 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     }
 
     setShowReplyModal(false);
+    
+    // Forzar actualización de la vista
+    forceUpdate();
+    
     if (onNotify) onNotify({ type: 'info', title: 'Publicación creada', message: 'Tu publicación fue añadida.' });
   };
 
@@ -576,9 +615,21 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
         replies: []
       };
       copy[currentTopicId] = [newPost, ...(copy[currentTopicId] || [])];
+      
+      // Actualizar localStorage inmediatamente para sincronización
+      try {
+        localStorage.setItem(POSTS_KEY, JSON.stringify(copy));
+      } catch (error) {
+        console.warn('Error saving to localStorage:', error);
+      }
+      
       return copy;
     });
     setShowNewPostModal(false);
+    
+    // Forzar actualización de la vista
+    forceUpdate();
+    
     if (onNotify) onNotify({ type: 'success', title: 'Publicación creada', message: 'Tu publicación fue añadida.' });
   };
 
@@ -672,20 +723,21 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
                 <i className="fas fa-plus"></i> Nuevo Post
               </button>
               
-              {/* Botón de eliminar topic - solo visible para el autor */}
+              {/* Botón de eliminar topic - visible para el autor o administradores */}
               {(() => {
                 const currentUser = getCurrentUser();
                 const isAuthor = currentUser && topic && topic.author === currentUser.username;
+                const isUserAdmin = currentUser && currentUser.role === 'admin';
                 
-                if (isAuthor) {
+                if (isAuthor || isUserAdmin) {
                   return (
                     <button 
                       className="btn btn-danger ms-2" 
                       onClick={() => setShowDeleteModal(true)}
-                      title="Eliminar topic"
+                      title={isUserAdmin && !isAuthor ? "Eliminar topic (Admin)" : "Eliminar topic"}
                       aria-label="Eliminar topic"
                     >
-                      <i className="fas fa-trash"></i> Eliminar
+                      <i className="fas fa-trash"></i> {isUserAdmin && !isAuthor ? "Eliminar (Admin)" : "Eliminar"}
                     </button>
                   );
                 }

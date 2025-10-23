@@ -351,6 +351,8 @@ label {
   white-space: nowrap;
   line-height: 1;
   min-height: 40px;
+  opacity: 1 !important; /* Asegurar visibilidad por defecto */
+  visibility: visible !important; /* Asegurar visibilidad por defecto */
 }
 
 /* Estilos para botones que actúan como nav-links */
@@ -536,10 +538,13 @@ label {
 .navbar-collapse {
   display: none;
   width: 100%;
+  opacity: 1 !important; /* Asegurar visibilidad cuando esté activo */
 }
 
 .navbar-collapse.show {
-  display: block;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Mobile navbar animation - media query specific */
@@ -660,11 +665,14 @@ label {
     max-width: none;
     overflow: visible;
     white-space: nowrap;
+    color: var(--accent-yellow) !important; /* Asegurar color visible */
+    opacity: 1 !important; /* Forzar visibilidad */
   }
 
   .navbar-brand i {
     font-size: 1.3rem;
     flex-shrink: 0;
+    color: var(--accent-red) !important; /* Asegurar color del ícono */
   }
 
   .navbar-brand .brand-text {
@@ -672,6 +680,7 @@ label {
     overflow: visible;
     white-space: nowrap;
     flex-shrink: 0;
+    color: var(--accent-yellow) !important; /* Asegurar color del texto */
   }
 
   .navbar-nav {
@@ -689,6 +698,10 @@ label {
     border-radius: 8px;
     background: rgba(255,255,255,0.02);
     margin-bottom: 2px;
+    opacity: 1 !important; /* Asegurar visibilidad */
+    visibility: visible !important; /* Asegurar visibilidad */
+    display: flex !important; /* Asegurar que se muestre */
+    color: rgba(255,255,255,0.85) !important; /* Asegurar color visible */
   }
 
   .navbar-nav .nav-link:hover {
@@ -792,14 +805,20 @@ label {
     border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.12);
     box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
-    overflow: hidden;
+    overflow: visible; /* Cambiar de hidden a visible */
     transform-origin: top center;
+    opacity: 1 !important; /* Forzar visibilidad */
+    visibility: visible !important; /* Forzar visibilidad */
   }
 
   .navbar-nav {
     flex-direction: column;
     gap: 0;
     padding: 0.5rem 0;
+    display: flex !important; /* Asegurar que se muestre */
+    width: 100% !important; /* Asegurar ancho completo */
+    opacity: 1 !important; /* Forzar visibilidad */
+    visibility: visible !important; /* Forzar visibilidad */
   }
 
   .navbar-nav .nav-link {
@@ -811,10 +830,12 @@ label {
     transition: all .4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-    opacity: 0;
-    transform: translateX(-30px);
+    opacity: 1 !important; /* Forzar visibilidad */
+    transform: translateX(0) !important; /* Asegurar posición correcta */
     animation: slideInLeft 0.5s ease-out forwards;
     color: rgba(255,255,255,0.85) !important;
+    display: flex !important; /* Asegurar que se muestre */
+    visibility: visible !important; /* Forzar visibilidad */
   }
 
   .navbar-nav .nav-link::before {
@@ -936,6 +957,14 @@ label {
     width: auto;
   }
 
+  /* Asegurar que en desktop los nav-links sean visibles */
+  .navbar-nav .nav-link {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
   .auth-buttons {
     flex-direction: row;
     width: auto;
@@ -1044,11 +1073,14 @@ label {
     white-space: nowrap;
     flex-shrink: 0;
     position: relative;
+    color: var(--accent-yellow) !important; /* Asegurar visibilidad */
+    opacity: 1 !important; /* Forzar opacidad */
   }
 
   .navbar-brand i {
     font-size: 1.15rem;
     flex-shrink: 0;
+    color: var(--accent-red) !important; /* Asegurar color del ícono */
   }
 
   .navbar-brand .brand-text {
@@ -1056,6 +1088,7 @@ label {
     overflow: visible;
     white-space: nowrap;
     flex-shrink: 0;
+    color: var(--accent-yellow) !important; /* Asegurar color del texto */
   }
 
 
@@ -1090,14 +1123,18 @@ label {
     font-size: 1rem;
     gap: 6px;
     padding: 4px 6px;
+    color: var(--accent-yellow) !important; /* Asegurar visibilidad */
+    opacity: 1 !important; /* Forzar opacidad */
   }
 
   .navbar-brand i {
     font-size: 1.05rem;
+    color: var(--accent-red) !important; /* Asegurar color del ícono */
   }
 
   .navbar-brand .brand-text {
     font-size: 1rem;
+    color: var(--accent-yellow) !important; /* Asegurar color del texto */
   }
 
   .navbar-toggler {
@@ -1130,11 +1167,11 @@ label {
 
   @keyframes slideInLeft {
     0% {
-      opacity: 0;
+      opacity: 0.5; /* Empezar con algo de visibilidad */
       transform: translateX(-40px) scale(0.9);
     }
     60% {
-      opacity: 0.8;
+      opacity: 0.9;
       transform: translateX(5px) scale(1.02);
     }
     100% {
@@ -1143,20 +1180,20 @@ label {
     }
   }
 
-  /* Navbar brand animation on mobile */
+  /* Navbar brand animation on mobile - mejorada para mantener visibilidad */
   .navbar-brand {
-    animation: brandFadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
-    opacity: 0;
+    animation: brandFadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0s both;
+    opacity: 1 !important; /* Asegurar que sea visible por defecto */
   }
 
   @keyframes brandFadeIn {
     0% {
-      opacity: 0;
-      transform: translateY(-20px) scale(0.9);
+      opacity: 0.8; /* Empezar con opacidad visible */
+      transform: translateY(-10px) scale(0.95);
     }
     60% {
-      opacity: 0.8;
-      transform: translateY(3px) scale(1.05);
+      opacity: 0.9;
+      transform: translateY(2px) scale(1.02);
     }
     100% {
       opacity: 1;
@@ -1185,10 +1222,31 @@ label {
   /* Navbar brand hover effect on mobile */
   .navbar-brand:hover {
     transform: scale(1.05);
+    color: var(--accent-yellow) !important; /* Mantener color en hover */
   }
 
   .navbar-brand:active {
     transform: scale(0.95);
+    color: var(--accent-yellow) !important; /* Mantener color en active */
+  }
+
+  /* Asegurar que todos los estados del navbar-brand sean visibles */
+  .navbar-brand,
+  .navbar-brand:visited,
+  .navbar-brand:focus,
+  .navbar-brand:active,
+  .navbar-brand:hover {
+    color: var(--accent-yellow) !important;
+    opacity: 1 !important;
+    text-decoration: none !important;
+  }
+
+  .navbar-brand i,
+  .navbar-brand i:visited,
+  .navbar-brand i:focus,
+  .navbar-brand i:active,
+  .navbar-brand i:hover {
+    color: var(--accent-red) !important;
   }
 }
 
@@ -2833,18 +2891,45 @@ label {
 }
 
 .modern-close {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  color: white !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease !important;
+  transform: none !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .modern-close:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: rotate(90deg);
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: rotate(90deg) !important;
+  color: white !important;
+}
+
+.modern-close:active {
+  transform: rotate(90deg) scale(0.95) !important;
+}
+
+.modern-close:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.modern-close:disabled:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  transform: none !important;
+}
+
+.modern-close i {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  display: block !important;
 }
 
 /* Body del modal */
@@ -5160,7 +5245,7 @@ label {
   position: fixed;
   top: 90px;
   right: 1rem;
-  z-index: 20000;
+  z-index: 999999;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -5178,6 +5263,8 @@ label {
   border: 1px solid rgba(255, 255, 255, 0.1);
   animation: notificationSlideIn 0.3s ease-out;
   max-width: 100%;
+  z-index: 999999;
+  position: relative;
 }
 
 @keyframes notificationSlideIn {
@@ -7902,7 +7989,7 @@ label {
   position: fixed;
   top: 90px;
   right: 20px;
-  z-index: 9999;
+  z-index: 999999;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -7928,6 +8015,7 @@ label {
   pointer-events: auto;
   animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   min-height: 70px;
+  z-index: 999999;
 }
 
 @keyframes slideInRight {
