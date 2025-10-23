@@ -60,31 +60,83 @@ const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
   };
 
   return (
-    <div className="rf-modal-backdrop" onMouseDown={onClose}>
-      <div className="rf-modal post-modal new-post-modal" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="rf-modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="rf-modal new-post-modal" onClick={(e) => e.stopPropagation()}>
         <div className="rf-modal-header">
-          <h5 style={{margin:0}}>Crear nueva publicación</h5>
-          <button className="btn-close" aria-label="Cerrar" onClick={onClose}></button>
+          <h5><i className="fas fa-edit"></i> Crear Nueva Publicación</h5>
+          <button className="btn-close" aria-label="Cerrar" onClick={onClose}>
+            <i className="fas fa-times"></i>
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="rf-modal-body">
-            <label className="form-label">Título</label>
-            <input className="form-control mb-2" value={title} onChange={(e) => setTitle(e.target.value)} />
-            {errors.title && <div className="text-danger small">{errors.title}</div>}
+            <div className="mb-3">
+              <label className="form-label" htmlFor="postTitle"><i className="fas fa-heading"></i> Título</label>
+              <input 
+                id="postTitle"
+                type="text"
+                className={`form-control ${errors.title ? 'is-invalid' : ''}`}
+                placeholder="Escribe un título atractivo..."
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={80}
+              />
+              {errors.title && <div className="invalid-feedback">{errors.title}</div>}
+              <small className="form-text">{title.length}/80 caracteres</small>
+            </div>
 
-            <label className="form-label mt-2">Descripción</label>
-            <input className="form-control mb-2" value={description} onChange={(e) => setDescription(e.target.value)} />
-            {errors.description && <div className="text-danger small">{errors.description}</div>}
+            <div className="mb-3">
+              <label className="form-label" htmlFor="postDescription"><i className="fas fa-info-circle"></i> Descripción</label>
+              <input 
+                id="postDescription"
+                type="text"
+                className={`form-control ${errors.description ? 'is-invalid' : ''}`}
+                placeholder="Resume brevemente tu publicación..."
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={120}
+              />
+              {errors.description && <div className="invalid-feedback">{errors.description}</div>}
+              <small className="form-text">{description.length}/120 caracteres</small>
+            </div>
 
-            <label className="form-label mt-2">Mensaje</label>
-            <textarea className="form-control" rows="6" value={message} onChange={(e) => setMessage(e.target.value)} />
-            {errors.message && <div className="text-danger small">{errors.message}</div>}
+            <div className="mb-3">
+              <label className="form-label" htmlFor="postMessage"><i className="fas fa-align-left"></i> Contenido</label>
+              <textarea 
+                id="postMessage"
+                className={`form-control ${errors.message ? 'is-invalid' : ''}`}
+                placeholder="Escribe el contenido de tu publicación en detalle..."
+                rows="8"
+                value={message} 
+                onChange={(e) => setMessage(e.target.value)}
+                maxLength={1500}
+              />
+              {errors.message && <div className="invalid-feedback">{errors.message}</div>}
+              <small className="form-text">{message.length}/1500 caracteres</small>
+            </div>
+
+            <div className="post-guidelines">
+              <i className="fas fa-lightbulb"></i>
+              <div>
+                <strong>Consejos para una buena publicación:</strong>
+                <ul>
+                  <li>Usa un título claro y específico</li>
+                  <li>Incluye una descripción que resuma el tema</li>
+                  <li>Desarrolla tu idea completamente en el contenido</li>
+                  <li>Mantén un tono respetuoso y constructivo</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <div className="rf-modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary">Publicar</button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              <i className="fas fa-times"></i> Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary">
+              <i className="fas fa-paper-plane"></i> Publicar
+            </button>
           </div>
         </form>
       </div>
