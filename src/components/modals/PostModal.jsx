@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import PostThreadModal from './PostThreadModal';
 import ReportUserModal from './ReportUserModal';
 
-const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
+const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded }) => {
   const [post, setPost] = useState(initialPost || null);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -97,6 +97,11 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
     setShowReplyModal(false);
     setReplyingTo(null);
 
+    // Notificar al componente padre que se agregó una respuesta
+    if (onReplyAdded && typeof onReplyAdded === 'function') {
+      onReplyAdded();
+    }
+
     if (onNotify) {
       onNotify({
         type: 'success',
@@ -104,7 +109,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify }) => {
         message: 'Tu respuesta se ha añadido correctamente'
       });
     }
-  }, [getCurrentUser, persistReply, post?.id, replyingTo, onNotify]);
+  }, [getCurrentUser, persistReply, post?.id, replyingTo, onNotify, onReplyAdded]);
 
   const handleReplyToReply = useCallback((reply) => {
     setReplyingTo(reply);

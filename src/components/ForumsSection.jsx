@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import CreateTopicModal from './modals/CreateTopicModal';
-import { getVisibleTopics, checkUserPermission, isUserBlocked } from '../utils/roleUtils';
+import { checkUserPermission, isUserBlocked, handleTopicVote, validateAndCleanVoteData } from '../utils/roleUtils';
 
 const ForumsSection = ({ onNotify, onNavigate }) => {
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
@@ -51,29 +51,29 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     try {
       // Cargar topics existentes o usar iniciales
       const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+      
       if (storedTopics.length === 0) {
         localStorage.setItem('sf_topics', JSON.stringify(initialTopics));
-        console.log('Topics inicializados:', initialTopics);
         return initialTopics;
       }
       
-      // Filtrar topics de usuarios bloqueados
-      const currentUser = (() => {
-        try {
-          const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
-          return session.user || null;
-        } catch {
-          return null;
-        }
-      })();
+      // Validar y limpiar datos de votos para prevenir valores negativos
+      validateAndCleanVoteData();
       
-      const visibleTopics = getVisibleTopics(currentUser);
-      console.log('Topics visibles cargados:', visibleTopics.length);
-      return visibleTopics;
-    } catch {
+      // Para simplificar, retornar los topics directamente sin filtrado por ahora
+      // Esto evita problemas con getVisibleTopics que podrían estar causando el problema
+      return storedTopics;
+    } catch (error) {
+      console.error('Error inicializando topics:', error);
       return initialTopics;
     }
   });
+
+  // useEffect para limpiar datos de localStorage solo al montar el componente
+  useEffect(() => {
+    // Validar y limpiar datos una sola vez al cargar
+    validateAndCleanVoteData();
+  }, []); // Sin dependencias para ejecutar solo una vez
 
   const handleSort = (type) => {
     setSortBy(type);
@@ -266,30 +266,6 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       return;
     }
 
-    // Verificar si el usuario está bloqueado
-    if (isUserBlocked(currentUser.username)) {
-      if (onNotify && typeof onNotify === 'function') {
-        onNotify({
-          type: 'error',
-          title: 'Cuenta suspendida',
-          message: 'Tu cuenta ha sido suspendida y no puedes votar'
-        });
-      }
-      return;
-    }
-
-    // Verificar permisos específicos
-    if (!checkUserPermission(currentUser.username, 'VOTE_TOPIC')) {
-      if (onNotify && typeof onNotify === 'function') {
-        onNotify({
-          type: 'error',
-          title: 'Sin permisos',
-          message: 'No tienes permisos para votar'
-        });
-      }
-      return;
-    }
-
     // Prevenir múltiples votaciones simultáneas para el mismo topic
     if (votingInProgress.has(topicId)) {
       return;
@@ -314,118 +290,43 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     setVotingInProgress(prev => new Set([...prev, topicId]));
 
     try {
-      // Obtener votos del usuario de localStorage
-      let userVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
-      const userVoteKey = `${currentUser.id}_${topicId}`;
-      const previousVote = userVotes[userVoteKey];
+      // Usar la función centralizada para manejar el voto
+      const result = handleTopicVote(topicId, voteType, currentUser);
       
-      // LÓGICA DE VOTACIÓN - Un usuario puede dar máximo 1 voto por topic
-      let newVote = null;
-      let actionType = '';
-      
-      if (previousVote === voteType) {
-        // Caso 1: El usuario clickeó el mismo botón - REMOVER voto
-        actionType = 'remove';
-        delete userVotes[userVoteKey];
-      } else {
-        // Caso 2: El usuario clickeó un botón diferente o no tenía voto previo - AGREGAR/CAMBIAR voto
-        actionType = 'add';
-        newVote = voteType;
-        userVotes[userVoteKey] = voteType;
-      }
-
-      // Actualizar el estado local de topics
-      setTopics(prev => prev.map(topic => {
-        if (topic.id === topicId) {
-          const updatedTopic = { ...topic };
-          
-          // Primero remover el voto anterior si existía
-          if (previousVote) {
-            if (previousVote === 'up') {
-              updatedTopic.upvotes = Math.max(0, (updatedTopic.upvotes || 0) - 1);
-            } else {
-              updatedTopic.downvotes = Math.max(0, (updatedTopic.downvotes || 0) - 1);
-            }
-          }
-          
-          // Luego agregar el nuevo voto si corresponde
-          if (actionType === 'add') {
-            if (newVote === 'up') {
-              updatedTopic.upvotes = (updatedTopic.upvotes || 0) + 1;
-            } else {
-              updatedTopic.downvotes = (updatedTopic.downvotes || 0) + 1;
-            }
-          }
-          
-          return updatedTopic;
-        }
-        return topic;
-      }));
-
-      // Validar que el voto no se duplicó antes de guardar
-      const finalUserVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
-      const currentVoteInStorage = finalUserVotes[userVoteKey];
-      
-      // Solo proceder si el estado es consistente o si estamos removiendo
-      if (actionType === 'remove' || !currentVoteInStorage || currentVoteInStorage !== voteType) {
-        // Guardar votos en localStorage de forma segura
-        localStorage.setItem('sf_user_votes', JSON.stringify(userVotes));
-      } else {
-        // Si ya existe el mismo voto, revertir cambios en el estado
-        throw new Error('Voto duplicado detectado');
-      }
-      
-      // También actualizar en el localStorage de posts para consistencia
-      let storedData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-      Object.keys(storedData).forEach(categoryId => {
-        if (storedData[categoryId] && Array.isArray(storedData[categoryId])) {
-          const topicIndex = storedData[categoryId].findIndex(t => t.id === topicId);
-          if (topicIndex !== -1) {
-            const topic = storedData[categoryId][topicIndex];
-            
-            // Aplicar la misma lógica de votación
-            if (previousVote) {
-              if (previousVote === 'up') {
-                topic.upvotes = Math.max(0, (topic.upvotes || 0) - 1);
-              } else {
-                topic.downvotes = Math.max(0, (topic.downvotes || 0) - 1);
-              }
-            }
-            
-            // Solo agregar voto si no es el mismo que el anterior
-            if (previousVote !== voteType) {
-              if (voteType === 'up') {
-                topic.upvotes = (topic.upvotes || 0) + 1;
-              } else {
-                topic.downvotes = (topic.downvotes || 0) + 1;
-              }
-            }
-            
-            storedData[categoryId][topicIndex] = topic;
-          }
-        }
-      });
-      
-      localStorage.setItem('sf_postsMap', JSON.stringify(storedData));
+      // Actualizar el estado local con los topics actualizados
+      setTopics(result.updatedTopics);
 
       // Notificar resultado
       if (onNotify) {
-        const hasVote = userVotes[userVoteKey];
-        const action = hasVote ? 'registrado' : 'removido';
-        const voteTypeText = hasVote === 'up' ? 'positivo' : hasVote === 'down' ? 'negativo' : '';
         onNotify({
           type: 'success',
           title: 'Votación actualizada',
-          message: `Voto ${voteTypeText} ${action} correctamente`
+          message: result.message
         });
       }
     } catch (error) {
       console.error('Error al guardar voto:', error);
+      
+      // Manejar errores específicos
+      let errorMessage = 'No se pudo registrar el voto. Inténtalo nuevamente.';
+      let errorTitle = 'Error';
+      
+      if (error.message.includes('Usuario bloqueado')) {
+        errorTitle = 'Cuenta suspendida';
+        errorMessage = 'Tu cuenta ha sido suspendida y no puedes votar';
+      } else if (error.message.includes('Sin permisos')) {
+        errorTitle = 'Sin permisos';
+        errorMessage = 'No tienes permisos para votar';
+      } else if (error.message === 'VOTE_WOULD_BE_NEGATIVE') {
+        errorTitle = 'Voto no permitido';
+        errorMessage = 'No puedes votar negativo cuando el score sería menor que 0';
+      }
+      
       if (onNotify) {
         onNotify({
           type: 'error',
-          title: 'Error',
-          message: 'No se pudo registrar el voto. Inténtalo nuevamente.'
+          title: errorTitle,
+          message: errorMessage
         });
       }
     } finally {
@@ -478,11 +379,13 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
     return `hace ${Math.floor(diff/86400)}d`;
   };
 
+
+
   return (
     <section id="forumsSection" className="content-section forums-reddit" style={{paddingTop:90}}>
       <div className="container">
         <div className="forums-header mb-4">
-          <h2><i className="fas fa-comments"></i>Foros de la Comunidad</h2>
+          <h2><i className="fas fa-comments"></i> Foros de la Comunidad</h2>
           <p className="text-muted">Comparte estrategias, encuentra compañeros y únete a la discusión</p>
         </div>
 

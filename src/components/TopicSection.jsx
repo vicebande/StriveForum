@@ -238,10 +238,40 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const [reportTarget, setReportTarget] = useState(null);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Estado para forzar actualizaciones
 
+  // Función para sincronizar postsMap con localStorage
+  const syncPostsMapFromStorage = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(POSTS_KEY);
+      const storagePostsMap = safeParse(raw, fakePosts);
+      
+      // Solo actualizar si hay cambios reales
+      const currentDataStr = JSON.stringify(postsMap);
+      const storageDataStr = JSON.stringify(storagePostsMap);
+      
+      if (currentDataStr !== storageDataStr) {
+        setPostsMap(storagePostsMap);
+      }
+    } catch (error) {
+      console.warn('Error syncing postsMap from localStorage:', error);
+    }
+  }, [postsMap]);
+
   // Función para forzar actualización
   const forceUpdate = useCallback(() => {
+    syncPostsMapFromStorage();
     setUpdateTrigger(prev => prev + 1);
-  }, []);
+  }, [syncPostsMapFromStorage]);
+
+  // Actualizar activeThreadPost cuando postsMap cambie
+  useEffect(() => {
+    if (activeThreadPost && currentTopicId) {
+      const currentPosts = postsMap[currentTopicId] || [];
+      const updatedPost = currentPosts.find(p => p.id === activeThreadPost.id);
+      if (updatedPost && JSON.stringify(updatedPost.replies) !== JSON.stringify(activeThreadPost.replies)) {
+        setActiveThreadPost(updatedPost);
+      }
+    }
+  }, [postsMap, currentTopicId, activeThreadPost]);
 
   const topic = useMemo(() => {
     if (!currentTopicId) return null;
@@ -254,22 +284,34 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       throw new Error('No hay topic para eliminar');
     }
 
-    // Filtrar el topic de la lista
-    setTopics(prev => prev.filter(t => t.id !== currentTopicId));
-    
-    // Eliminar todos los posts asociados
-    setPostsMap(prev => {
-      const newMap = { ...prev };
-      delete newMap[currentTopicId];
-      return newMap;
-    });
+    try {
+      // Actualizar localStorage directamente de forma síncrona
+      
+      // 1. Eliminar topic de la lista de topics
+      const currentTopics = JSON.parse(localStorage.getItem(TOPICS_KEY) || '[]');
+      const filteredTopics = currentTopics.filter(t => t.id !== currentTopicId);
+      localStorage.setItem(TOPICS_KEY, JSON.stringify(filteredTopics));
 
-    // Redirigir a foros después de eliminar
-    if (onNavigate && typeof onNavigate === 'function') {
-      onNavigate('forums');
+      // 2. Eliminar todos los posts asociados
+      const currentPostsMap = JSON.parse(localStorage.getItem(POSTS_KEY) || '{}');
+      const newPostsMap = { ...currentPostsMap };
+      delete newPostsMap[currentTopicId];
+      localStorage.setItem(POSTS_KEY, JSON.stringify(newPostsMap));
+
+      // 3. Actualizar el estado local para reflejar los cambios inmediatamente
+      setTopics(filteredTopics);
+      setPostsMap(newPostsMap);
+
+      // 4. Redirigir a foros después de eliminar
+      if (onNavigate && typeof onNavigate === 'function') {
+        onNavigate('forums');
+      }
+
+      return 'Topic eliminado exitosamente';
+    } catch (error) {
+      console.error('Error eliminando topic:', error);
+      throw new Error(`No se pudo eliminar el topic: ${error.message}`);
     }
-
-    return 'Topic eliminado exitosamente';
   }, [currentTopicId, topic, onNavigate]);
 
   useEffect(() => {
@@ -306,6 +348,18 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       }
     } catch { /* ignore */ }
   }, [showThreadModal, activeThreadPost, currentTopicId]);
+
+  // Listener para sincronizar cambios de localStorage desde otras ventanas/tabs
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === POSTS_KEY) {
+        syncPostsMapFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [syncPostsMapFromStorage]);
 
   // Obtener posts visibles (filtrar contenido de usuarios bloqueados) - ANTES de validaciones
   const posts = useMemo(() => {
@@ -858,8 +912,14 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       />
       <PostModal
         show={showThreadModal}
-        onClose={() => { setShowThreadModal(false); setActiveThreadPost(null); }}
+        onClose={() => { 
+          syncPostsMapFromStorage(); // Sincronizar al cerrar el modal
+          setShowThreadModal(false); 
+          setActiveThreadPost(null); 
+        }}
         post={activeThreadPost}
+        onReplyAdded={forceUpdate}
+        onNotify={onNotify}
       />
       
       {/* Modal de confirmación para eliminar topic */}

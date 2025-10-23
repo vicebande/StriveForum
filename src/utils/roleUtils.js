@@ -391,6 +391,161 @@ export const filterVisibleContent = (content, currentUser = null) => {
   return content;
 };
 
+// Función para validar y limpiar datos de localStorage
+export const validateAndCleanVoteData = () => {
+  try {
+    const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+    let hasChanges = false;
+    
+    const cleanedTopics = topics.map(topic => {
+      const cleanedTopic = { ...topic };
+      
+      // Inicializar votos si no existen
+      cleanedTopic.upvotes = Math.max(0, cleanedTopic.upvotes || 0);
+      cleanedTopic.downvotes = Math.max(0, cleanedTopic.downvotes || 0);
+      
+      // Verificar si el score total es negativo
+      const totalScore = cleanedTopic.upvotes - cleanedTopic.downvotes;
+      if (totalScore < 0) {
+        // Ajustar downvotes para que el score mínimo sea 0
+        cleanedTopic.downvotes = cleanedTopic.upvotes;
+        hasChanges = true;
+      }
+      
+      return cleanedTopic;
+    });
+    
+    // Guardar solo si hubo cambios
+    if (hasChanges) {
+      localStorage.setItem('sf_topics', JSON.stringify(cleanedTopics));
+      console.log('Topics limpiados - votos negativos corregidos');
+    }
+    
+    return cleanedTopics;
+  } catch (error) {
+    console.warn('Error validando datos de localStorage:', error);
+    return [];
+  }
+};
+
+// Función centralizada para manejar votos de topics con persistencia mejorada
+export const handleTopicVote = (topicId, voteType, currentUser) => {
+  if (!currentUser) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  if (isUserBlocked(currentUser.username)) {
+    throw new Error('Usuario bloqueado no puede votar');
+  }
+
+  if (!checkUserPermission(currentUser.username, 'VOTE_TOPIC')) {
+    throw new Error('Sin permisos para votar');
+  }
+
+  try {
+    // Obtener datos actuales y validarlos
+    const userVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
+    let topics = validateAndCleanVoteData(); // Usar datos validados
+    
+    const userVoteKey = `${currentUser.id}_${topicId}`;
+    const previousVote = userVotes[userVoteKey];
+
+    // Determinar la acción a realizar
+    let actionType = '';
+    let newVote = null;
+    
+    if (previousVote === voteType) {
+      // Remover voto existente
+      actionType = 'remove';
+      delete userVotes[userVoteKey];
+    } else {
+      // Agregar o cambiar voto
+      actionType = 'add';
+      newVote = voteType;
+      userVotes[userVoteKey] = voteType;
+    }
+
+    // Encontrar el topic específico para hacer validaciones previas
+    const targetTopic = topics.find(topic => topic.id === topicId);
+    if (!targetTopic) {
+      throw new Error('Topic no encontrado');
+    }
+
+    // Validación especial para downvotes que harían el score <= 0
+    if (actionType === 'add' && newVote === 'down') {
+      const currentUpvotes = Math.max(0, targetTopic.upvotes || 0);
+      const currentDownvotes = Math.max(0, targetTopic.downvotes || 0);
+      
+      // Ajustar por voto anterior si existía
+      let adjustedUpvotes = currentUpvotes;
+      let adjustedDownvotes = currentDownvotes;
+      
+      if (previousVote === 'up') {
+        adjustedUpvotes = Math.max(0, adjustedUpvotes - 1);
+      } else if (previousVote === 'down') {
+        adjustedDownvotes = Math.max(0, adjustedDownvotes - 1);
+      }
+      
+      const scoreAfterDownvote = adjustedUpvotes - (adjustedDownvotes + 1);
+      
+      if (scoreAfterDownvote < 0) {
+        throw new Error('VOTE_WOULD_BE_NEGATIVE');
+      }
+    }
+
+    // Actualizar los topics
+    const updatedTopics = topics.map(topic => {
+      if (topic.id === topicId) {
+        const updatedTopic = { ...topic };
+        
+        // Inicializar upvotes/downvotes si no existen
+        updatedTopic.upvotes = Math.max(0, updatedTopic.upvotes || 0);
+        updatedTopic.downvotes = Math.max(0, updatedTopic.downvotes || 0);
+        
+        // Remover voto anterior si existía
+        if (previousVote) {
+          if (previousVote === 'up') {
+            updatedTopic.upvotes = Math.max(0, updatedTopic.upvotes - 1);
+          } else if (previousVote === 'down') {
+            updatedTopic.downvotes = Math.max(0, updatedTopic.downvotes - 1);
+          }
+        }
+        
+        // Agregar nuevo voto si corresponde
+        if (actionType === 'add') {
+          if (newVote === 'up') {
+            updatedTopic.upvotes = updatedTopic.upvotes + 1;
+          } else if (newVote === 'down') {
+            // En este punto ya sabemos que es seguro agregar el downvote
+            updatedTopic.downvotes = updatedTopic.downvotes + 1;
+          }
+        }
+        
+        return updatedTopic;
+      }
+      return topic;
+    });
+
+    // Guardar cambios en localStorage de forma atómica
+    localStorage.setItem('sf_user_votes', JSON.stringify(userVotes));
+    localStorage.setItem('sf_topics', JSON.stringify(updatedTopics));
+
+    // Retornar información sobre el resultado
+    return {
+      success: true,
+      action: actionType,
+      voteType: newVote,
+      updatedTopics,
+      message: actionType === 'add' 
+        ? `Voto ${voteType === 'up' ? 'positivo' : 'negativo'} registrado` 
+        : 'Voto removido'
+    };
+
+  } catch (error) {
+    throw new Error(`Error al procesar voto: ${error.message}`);
+  }
+};
+
 // Verificar si un usuario puede realizar acciones (crear, votar, etc.)
 export const canUserPerformActions = (username) => {
   if (!username) return false;
