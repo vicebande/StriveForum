@@ -8,64 +8,19 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
   const [lastVoteTime, setLastVoteTime] = useState({});
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const initialTopics = [
-    { 
-      id: 't1', 
-      title: 'Guías y combos para principiantes', 
-      description: 'Mejores combos para empezar en Guilty Gear Strive',
-      author: 'Admin',
-      authorAvatar: 'A',
-      createdAt: Date.now()-1000*60*60*24*10,
-      upvotes: 142,
-      downvotes: 8,
-      comments: 23,
-      category: 'Guías'
-    },
-    { 
-      id: 't2', 
-      title: 'Análisis del meta actual - Temporada 3', 
-      description: 'Discusión sobre los cambios de balance y el estado actual del meta',
-      author: 'MetaExpert',
-      authorAvatar: 'M',
-      createdAt: Date.now()-1000*60*60*24*3,
-      upvotes: 89,
-      downvotes: 12,
-      comments: 38,
-      category: 'Análisis'
-    },
-    { 
-      id: 't3', 
-      title: '¿Qué personaje recomiendan para empezar?', 
-      description: 'Soy nuevo en fighting games y no sé por dónde empezar',
-      author: 'Newbie123',
-      authorAvatar: 'N',
-      createdAt: Date.now()-1000*60*60*6,
-      upvotes: 67,
-      downvotes: 2,
-      comments: 42,
-      category: 'Discusión'
-    },
-  ];
-
   const [topics, setTopics] = useState(() => {
     try {
-      // Cargar topics existentes o usar iniciales
+      // Cargar topics existentes, empezar con array vacío si no hay datos
       const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      
-      if (storedTopics.length === 0) {
-        localStorage.setItem('sf_topics', JSON.stringify(initialTopics));
-        return initialTopics;
-      }
       
       // Validar y limpiar datos de votos para prevenir valores negativos
       validateAndCleanVoteData();
       
-      // Para simplificar, retornar los topics directamente sin filtrado por ahora
-      // Esto evita problemas con getVisibleTopics que podrían estar causando el problema
+      // Retornar los topics almacenados (puede ser array vacío)
       return storedTopics;
     } catch (error) {
       console.error('Error inicializando topics:', error);
-      return initialTopics;
+      return [];
     }
   });
 
@@ -443,7 +398,38 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
 
         {/* Lista de topics estilo Reddit */}
         <div className="topics-list">
-          {topics.map(topic => {
+          {topics.length === 0 ? (
+            <div className="empty-state text-center py-5">
+              <i className="fas fa-comments fa-4x text-muted mb-3"></i>
+              <h4 className="text-muted">No hay topics todavía</h4>
+              <p className="text-muted mb-4">Sé el primero en iniciar una conversación en la comunidad</p>
+              <button className="btn btn-primary" onClick={() => {
+                const currentUser = getCurrentUser();
+                if (!currentUser) {
+                  if (onNotify) onNotify({
+                    type: 'warning',
+                    title: 'Acceso requerido',
+                    message: 'Debes iniciar sesión para crear un nuevo topic'
+                  });
+                  return;
+                }
+                
+                // Verificar si el usuario está bloqueado
+                if (isUserBlocked(currentUser.username)) {
+                  if (onNotify) onNotify({
+                    type: 'error',
+                    title: 'Cuenta suspendida',
+                    message: 'Tu cuenta ha sido suspendida y no puedes crear contenido'
+                  });
+                  return;
+                }
+                
+                setShowCreateModal(true);
+              }}>
+                <i className="fas fa-plus me-2"></i> Crear primer topic
+              </button>
+            </div>
+          ) : topics.map(topic => {
             const score = (topic.upvotes || 0) - (topic.downvotes || 0);
             return (
               <div 

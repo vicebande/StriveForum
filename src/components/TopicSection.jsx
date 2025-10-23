@@ -7,180 +7,6 @@ import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
 import { isUserBlocked, checkUserPermission, isAdmin } from '../utils/roleUtils';
 
-const fakeTopics = [
-  {
-    id: 't1',
-    title: 'Guías y combos',
-    description: 'Mejores combos para principiantes y tutoriales paso a paso.',
-    author: 'Admin',
-    createdAt: Date.now() - 1000*60*60*24*10,
-    category: 'Guías',
-    upvotes: 142
-  }
-];
-
-const fakePosts = {
-  t1: [
-    { 
-      id: 'p1', 
-      author: 'UserA', 
-      authorAvatar: 'U',
-      title: 'Mejores combos para Ky Kiske',
-      message: '¿Alguien tiene un combo simple para Ky que sea efectivo en ranked? Necesito algo que no requiera timing perfecto.', 
-      createdAt: Date.now()-1000*60*60*24*2, 
-      replies: [
-        { 
-          id: 'r1', 
-          author: 'FightingCoach', 
-          authorAvatar: 'F', 
-          content: 'Prueba este combo básico pero efectivo: LP → MP → 236P (Stun Edge). Es perfecto para beginners y funciona contra la mayoría de personajes.', 
-          createdAt: Date.now()-1000*60*60*24,
-          likes: 8
-        },
-        { 
-          id: 'r2', 
-          author: 'KyMain', 
-          authorAvatar: 'K', 
-          content: '¡Ese combo está bien! También puedes probar LP → 214K (Vapor Thrust) para más daño. Es un poco más difícil pero vale la pena aprenderlo.', 
-          createdAt: Date.now()-1000*60*60*12,
-          likes: 5
-        },
-        { 
-          id: 'r3', 
-          author: 'NewPlayer', 
-          authorAvatar: 'N', 
-          content: 'Gracias por los consejos! ¿Hay algún combo que funcione bien en counter hit?', 
-          createdAt: Date.now()-1000*60*60*6,
-          likes: 2,
-          parentId: 'r1'
-        }
-      ] 
-    },
-    { 
-      id: 'p2', 
-      author: 'UserB', 
-      authorAvatar: 'B',
-      title: 'Dudas sobre starter combos',
-      message: '¿Qué botones usar para starter combos con personajes rápidos? No logro conectar bien los links. Juego principalmente Chipp y I-No.', 
-      createdAt: Date.now()-1000*60*60*24*5, 
-      replies: [
-        { 
-          id: 'r10', 
-          author: 'ChippMaster', 
-          authorAvatar: 'C', 
-          content: 'Para Chipp usa 2P como starter. Es su normal más rápido (5 frames) y linkea fácil a 2K → 214K. Con I-No prueba c.S → f.S → 236H.', 
-          createdAt: Date.now()-1000*60*60*24*4,
-          likes: 15
-        },
-        { 
-          id: 'r11', 
-          author: 'INoQueen', 
-          authorAvatar: 'I', 
-          content: 'El timing de I-No es más strict. Practica el link c.S → f.S en training mode hasta que salga consistente. Después añade el special.', 
-          createdAt: Date.now()-1000*60*60*24*3,
-          likes: 9
-        }
-      ]
-    },
-    { 
-      id: 'p4', 
-      author: 'FGCNewbie', 
-      authorAvatar: 'F',
-      title: '¿Mejores controladores para Guilty Gear?',
-      message: 'Soy nuevo en fighting games. ¿Recomiendan pad o stick? ¿Qué marcas son buenas para empezar sin gastar mucho?', 
-      createdAt: Date.now()-1000*60*60*18, 
-      replies: [
-        { 
-          id: 'r12', 
-          author: 'StickVeteran', 
-          authorAvatar: 'S', 
-          content: 'Para empezar, un pad está perfecto. El DualSense de PS5 o el Xbox controller son excelentes. Los sticks son caros y requieren práctica.', 
-          createdAt: Date.now()-1000*60*60*16,
-          likes: 22
-        },
-        { 
-          id: 'r13', 
-          author: 'BudgetFighter', 
-          authorAvatar: 'B', 
-          content: 'Si quieres probar stick, el Mayflash F300 es bueno y barato (~$60). Puedes upgradear las partes después si te gusta.', 
-          createdAt: Date.now()-1000*60*60*12,
-          likes: 18
-        },
-        { 
-          id: 'r14', 
-          author: 'HitBoxUser', 
-          authorAvatar: 'H', 
-          content: 'También considera el Hitbox si tienes experiencia con teclado. Es muy preciso para charge characters y motion inputs.', 
-          createdAt: Date.now()-1000*60*60*8,
-          likes: 11
-        }
-      ]
-    }
-  ],
-  t2: [
-    { 
-      id: 'p3', 
-      author: 'MatchHunter', 
-      authorAvatar: 'M',
-      title: 'Busco equipo para rankeds',
-      message: 'Busco team para rankeds nocturnos. Nivel intermedio, juego entre 10pm-2am horario CST. Estoy en Gold rank y quiero subir a Platinum.', 
-      createdAt: Date.now()-1000*60*60*6, 
-      replies: [
-        { 
-          id: 'r7', 
-          author: 'NightOwl', 
-          authorAvatar: 'N', 
-          content: '¡Perfecto! Yo también juego en esos horarios. Estoy en Gold III y main Sol Badguy. Mi Discord es NightOwl#1234', 
-          createdAt: Date.now()-1000*60*60*4,
-          likes: 6
-        },
-        { 
-          id: 'r8', 
-          author: 'PlatiMay', 
-          authorAvatar: 'P', 
-          content: 'Los puedo ayudar con estrategias. Llegué a Celestial la temporada pasada. Para subir a Platinum necesitan trabajar en neutral game.', 
-          createdAt: Date.now()-1000*60*60*2,
-          likes: 12
-        },
-        { 
-          id: 'r9', 
-          author: 'CSTeamLead', 
-          authorAvatar: 'C', 
-          content: 'Tengo un server de Discord para players de CST timezone. ¡Únanse! discord.gg/cst-fighters', 
-          createdAt: Date.now()-1000*60*60*1,
-          likes: 8
-        }
-      ]
-    },
-    { 
-      id: 'p5', 
-      author: 'TourneyOrganizer', 
-      authorAvatar: 'T',
-      title: 'Torneo local este sábado - ¡Únanse!',
-      message: 'Organizamos un torneo local de Guilty Gear Strive este sábado 2pm. Entry fee $10, prizes al top 3. Lugar: GameCenter Plaza Norte.', 
-      createdAt: Date.now()-1000*60*60*2, 
-      replies: [
-        { 
-          id: 'r15', 
-          author: 'CompetitivePlayer', 
-          authorAvatar: 'C', 
-          content: '¡Cuenta conmigo! ¿Hay stream? Me gusta ver los matches después para estudiar.', 
-          createdAt: Date.now()-1000*60*60*1,
-          likes: 4
-        },
-        { 
-          id: 'r16', 
-          author: 'LocalSceneSupporter', 
-          authorAvatar: 'L', 
-          content: 'Excelente iniciativa! La escena local necesita más eventos así. ¿Habrá bracket para beginners?', 
-          createdAt: Date.now()-1000*60*45,
-          likes: 7
-        }
-      ]
-    }
-  ]
-};
-
 const TOPICS_KEY = 'sf_topics';
 const POSTS_KEY = 'sf_postsMap';
 const ACTIVE_THREAD_KEY = 'sf_active_thread';
@@ -219,12 +45,12 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
 
   const [topics, setTopics] = useState(() => {
     const raw = localStorage.getItem(TOPICS_KEY);
-    return safeParse(raw, fakeTopics);
+    return safeParse(raw, []);
   });
 
   const [postsMap, setPostsMap] = useState(() => {
     const raw = localStorage.getItem(POSTS_KEY);
-    return safeParse(raw, fakePosts);
+    return safeParse(raw, {});
   });
 
   const [showReplyModal, setShowReplyModal] = useState(false);
@@ -242,7 +68,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const syncPostsMapFromStorage = useCallback(() => {
     try {
       const raw = localStorage.getItem(POSTS_KEY);
-      const storagePostsMap = safeParse(raw, fakePosts);
+      const storagePostsMap = safeParse(raw, {});
       
       // Solo actualizar si hay cambios reales
       const currentDataStr = JSON.stringify(postsMap);

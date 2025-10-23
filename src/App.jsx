@@ -11,6 +11,19 @@ import Notifications from './components/notifications/Notifications';
 import TopicSection from './components/TopicSection';
 import { isUserBlocked } from './utils/roleUtils';
 
+// ===== UTILITY FUNCTIONS =====
+const clearFakeDataFromLocalStorage = () => {
+  try {
+    // Clear any existing fake topics and posts
+    localStorage.removeItem('sf_topics');
+    localStorage.removeItem('sf_postsMap');
+    
+    console.log('Fake data cleared from localStorage');
+  } catch (error) {
+    console.warn('Error clearing fake data from localStorage:', error);
+  }
+};
+
 // ===== MOCK AUTH SERVICE (preparado para API real) =====
 const AuthService = {
   // Simula llamada a API de login
@@ -180,6 +193,13 @@ const App = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ===== INITIALIZATION =====
+  
+  // Clear fake data on app startup
+  useEffect(() => {
+    clearFakeDataFromLocalStorage();
+  }, []); // Run only once on app startup
 
   // ===== PERSISTENCE =====
   
