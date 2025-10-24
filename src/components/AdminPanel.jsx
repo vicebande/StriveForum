@@ -36,7 +36,10 @@ const AdminPanel = ({ user, onNotify }) => {
 
   useEffect(() => {
     if (user && isAdmin(user)) {
-      loadData();
+      // Defer loadData to avoid calling setState synchronously in effect
+      Promise.resolve().then(() => {
+        loadData();
+      });
     }
   }, [user, loadData]);
 

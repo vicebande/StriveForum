@@ -21,11 +21,13 @@ const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
         if (el) el.focus();
       }, 40);
     } else {
-      // Limpiar formulario cuando se cierra
-      setTitle('');
-      setDescription('');
-      setMessage('');
-      setErrors({});
+      // Limpiar formulario cuando se cierra (defer setState)
+      Promise.resolve().then(() => {
+        setTitle('');
+        setDescription('');
+        setMessage('');
+        setErrors({});
+      });
     }
   }, [show]);
 

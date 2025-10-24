@@ -281,14 +281,16 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
   useEffect(() => {
     const statsKey = `sf_user_stats_${user.username}`;
     const savedStats = JSON.parse(localStorage.getItem(statsKey) || 'null');
-    
-    if (savedStats) {
-      setPreviousStats(savedStats);
-    } else {
-      // Si no hay estadísticas anteriores, usar las actuales como base
-      setPreviousStats(currentStats);
-    }
-  }, [user.username, currentStats]); // Agregar currentStats como dependencia
+    // Defer setState to avoid calling synchronously in effect
+    Promise.resolve().then(() => {
+      if (savedStats) {
+        setPreviousStats(savedStats);
+      } else {
+        // Si no hay estadísticas anteriores, usar las actuales como base
+        setPreviousStats(currentStats);
+      }
+    });
+  }, [user.username, currentStats]);
 
   // Guardar estadísticas cuando cambien
   useEffect(() => {

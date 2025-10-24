@@ -15,28 +15,28 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
 
   useEffect(() => {
     if (show) {
-      setIsAnimating(true);
-      setAnimationClass('auth-modal-enter');
-      
+      Promise.resolve().then(() => {
+        setIsAnimating(true);
+        setAnimationClass('auth-modal-enter');
+      });
       const timer = setTimeout(() => {
         setAnimationClass('auth-modal-enter-active');
       }, 50);
-      
       return () => clearTimeout(timer);
     } else if (isAnimating) {
       // Limpiar formulario cuando se cierra
-      setUsername('');
-      setEmail('');
-      setPassword('');
-      setConfirm('');
-      setErrors({});
-      setIsSubmitting(false);
-      
-      setAnimationClass('auth-modal-exit');
+      Promise.resolve().then(() => {
+        setUsername('');
+        setEmail('');
+        setPassword('');
+        setConfirm('');
+        setErrors({});
+        setIsSubmitting(false);
+        setAnimationClass('auth-modal-exit');
+      });
       const timer = setTimeout(() => {
         setIsAnimating(false);
       }, 300);
-      
       return () => clearTimeout(timer);
     }
   }, [show, isAnimating]);

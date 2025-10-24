@@ -10,7 +10,7 @@ import {
   safeStorageSet 
 } from '../utils/storage';
 
-const ForumsSection = ({ onNotify, user }) => {
+const ForumsSection = ({ onNotify }) => {
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
   const [votingInProgress, setVotingInProgress] = useState(new Set());

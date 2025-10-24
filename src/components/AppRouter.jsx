@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { saveCurrentSection } from '../utils/storage';
 import Navbar from './Navbar';
 import Hero from './Hero';
 import ForumsSection from './ForumsSection';
@@ -9,16 +9,7 @@ import TopicSection from './TopicSection';
 import AdminPanel from './AdminPanel';
 import NotFound from './NotFound';
 import Notifications from './notifications/Notifications';
-import { isUserBlocked } from '../utils/roleUtils';
-import { 
-  getAuthSession,
-  saveAuthSession,
-  clearAuthSession,
-  getCurrentSection,
-  saveCurrentSection,
-  registerUser,
-  verifyUserCredentials
-} from '../utils/storage';
+// Removed unused imports from roleUtils and storage
 
 // Componente para rutas protegidas
 const ProtectedRoute = ({ children, user, requireAuth = true, requireAdmin = false }) => {
@@ -34,29 +25,20 @@ const ProtectedRoute = ({ children, user, requireAuth = true, requireAdmin = fal
 };
 
 // Componente principal de la aplicación con enrutamiento
-const AppRouter = ({ 
-  user, 
-  setUser, 
-  notifications, 
+const AppRouter = ({
+  user,
+  notifications,
   setNotifications,
-  showLoginModal,
+  handleLogout,
   setShowLoginModal,
-  showRegisterModal,
-  setShowRegisterModal,
-  handleLogin,
-  handleRegister,
-  handleLogout
+  setShowRegisterModal
 }) => {
-  const [currentTopicId, setCurrentTopicId] = useState(null);
-
   // Función para navegar programáticamente
   const handleNavigate = (section, topicId = null) => {
     if (topicId) {
-      setCurrentTopicId(topicId);
       // Usar navigate de react-router en lugar de guardar en localStorage
       window.history.pushState(null, '', `/topic/${topicId}`);
     } else {
-      setCurrentTopicId(null);
       saveCurrentSection(section);
       // Navegar a la sección correspondiente
       if (section === 'forums') {
@@ -89,9 +71,9 @@ const AppRouter = ({
           <div className="App">
             <Navbar 
               user={user} 
-              onShowLogin={() => setShowLoginModal(true)}
-              onShowRegister={() => setShowRegisterModal(true)}
               onLogout={handleLogout}
+              onShowLogin={() => setShowLoginModal && setShowLoginModal(true)}
+              onShowRegister={() => setShowRegisterModal && setShowRegisterModal(true)}
             />
             
             <main className="main-content">
@@ -99,23 +81,13 @@ const AppRouter = ({
             {/* Ruta principal - Hero accesible para todos */}
             <Route 
               path="/" 
-              element={
-                <Hero 
-                  onShowLogin={() => setShowLoginModal(true)}
-                  onShowRegister={() => setShowRegisterModal(true)}
-                />
-              } 
+              element={<Hero />} 
             />
             
             {/* Ruta específica para Hero - misma funcionalidad que / */}
             <Route 
               path="/hero" 
-              element={
-                <Hero 
-                  onShowLogin={() => setShowLoginModal(true)}
-                  onShowRegister={() => setShowRegisterModal(true)}
-                />
-              } 
+              element={<Hero />} 
             />
             
             {/* Ruta de Foros */}
@@ -198,8 +170,7 @@ const AppRouter = ({
 };
 
 // Componente separado para manejar rutas de topics
-const TopicRoute = ({ user, onNavigate, onNotify }) => {
-  const { topicId } = useParams();
+const TopicRoute = ({ user, onNotify }) => {
   
   return (
     <TopicSection 

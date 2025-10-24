@@ -23,21 +23,18 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
       const canReport = canReportUser(reporterUser.username, reportedUsername);
       if (!canReport) {
         const remaining = getReportCooldownRemaining(reporterUser.username, reportedUsername);
-        setCooldownRemaining(remaining);
-        
+        Promise.resolve().then(() => setCooldownRemaining(remaining));
         // Actualizar countdown cada segundo
         const interval = setInterval(() => {
           const newRemaining = getReportCooldownRemaining(reporterUser.username, reportedUsername);
-          setCooldownRemaining(newRemaining);
-          
+          Promise.resolve().then(() => setCooldownRemaining(newRemaining));
           if (newRemaining <= 0) {
             clearInterval(interval);
           }
         }, 1000);
-        
         return () => clearInterval(interval);
       } else {
-        setCooldownRemaining(0);
+        Promise.resolve().then(() => setCooldownRemaining(0));
       }
     }
   }, [show, reporterUser, reportedUsername]);
@@ -45,25 +42,25 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
   // Animaciones del modal
   useEffect(() => {
     if (show) {
-      setIsAnimating(true);
-      setAnimationClass('auth-modal-enter');
-      
+      Promise.resolve().then(() => {
+        setIsAnimating(true);
+        setAnimationClass('auth-modal-enter');
+      });
       const timer = setTimeout(() => {
         setAnimationClass('auth-modal-enter-active');
       }, 50);
-      
       return () => clearTimeout(timer);
     } else if (isAnimating) {
       // Limpiar formulario cuando se cierra
-      setReason(REPORT_REASONS.SPAM);
-      setDescription('');
-      setIsSubmitting(false);
-      
-      setAnimationClass('auth-modal-exit');
+      Promise.resolve().then(() => {
+        setReason(REPORT_REASONS.SPAM);
+        setDescription('');
+        setIsSubmitting(false);
+        setAnimationClass('auth-modal-exit');
+      });
       const timer = setTimeout(() => {
         setIsAnimating(false);
       }, 300);
-      
       return () => clearTimeout(timer);
     }
   }, [show, isAnimating]);

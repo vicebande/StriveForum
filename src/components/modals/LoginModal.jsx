@@ -10,27 +10,27 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
 
   useEffect(() => {
     if (show) {
-      setIsAnimating(true);
-      setAnimationClass('auth-modal-enter');
-      
+      Promise.resolve().then(() => {
+        setIsAnimating(true);
+        setAnimationClass('auth-modal-enter');
+      });
       // Reset animation class after animation completes
       const timer = setTimeout(() => {
         setAnimationClass('auth-modal-enter-active');
       }, 50);
-      
       return () => clearTimeout(timer);
     } else if (isAnimating) {
       // Limpiar formulario cuando se cierra
-      setUsername('');
-      setPassword('');
-      setErrors({});
-      setIsSubmitting(false);
-      
-      setAnimationClass('auth-modal-exit');
+      Promise.resolve().then(() => {
+        setUsername('');
+        setPassword('');
+        setErrors({});
+        setIsSubmitting(false);
+        setAnimationClass('auth-modal-exit');
+      });
       const timer = setTimeout(() => {
         setIsAnimating(false);
       }, 300);
-      
       return () => clearTimeout(timer);
     }
   }, [show, isAnimating]);

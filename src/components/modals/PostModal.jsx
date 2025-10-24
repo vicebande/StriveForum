@@ -36,11 +36,15 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
 
   useEffect(() => {
     if (initialPost) {
-      setPost(initialPost);
-      // Cargar replies desde localStorage si existen
-      loadRepliesFromStorage(initialPost.id);
+      Promise.resolve().then(() => {
+        setPost(initialPost);
+        // Cargar replies desde localStorage si existen
+        loadRepliesFromStorage(initialPost.id);
+      });
     } else {
-      setPost(null);
+      Promise.resolve().then(() => {
+        setPost(null);
+      });
     }
   }, [initialPost, loadRepliesFromStorage]);
 
@@ -264,9 +268,6 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
   }, [post, sortBy]); // Cambiar a post completo en lugar de post?.replies
 
   if (!show || !post) {
-    if (show && !post) {
-      console.warn('⚠️ PostModal: Intentando mostrar modal sin post válido', { show, post });
-    }
     return null;
   }
 

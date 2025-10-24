@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import CreateTopicModal from '../../components/modals/CreateTopicModal';
 
@@ -17,44 +17,50 @@ describe('CreateTopicModal', () => {
     localStorage.clear();
   });
 
-  test('no se renderiza cuando show es false', () => {
-    render(
-      <CreateTopicModal 
-        show={false} 
-        onClose={mockOnClose}
-        onCreateTopic={mockOnCreateTopic}
-        onNotify={mockOnNotify}
-      />
-    );
+  test('no se renderiza cuando show es false', async () => {
+    await act(async () => {
+      render(
+        <CreateTopicModal 
+          show={false} 
+          onClose={mockOnClose}
+          onCreateTopic={mockOnCreateTopic}
+          onNotify={mockOnNotify}
+        />
+      );
+    });
     expect(screen.queryByText('Crear Nuevo Topic')).not.toBeInTheDocument();
   });
 
-  test('se renderiza cuando show es true', () => {
-    render(
-      <CreateTopicModal 
-        show={true}
-        onClose={mockOnClose}
-        onCreateTopic={mockOnCreateTopic}
-        onNotify={mockOnNotify}
-      />
-    );
+  test('se renderiza cuando show es true', async () => {
+    await act(async () => {
+      render(
+        <CreateTopicModal 
+          show={true}
+          onClose={mockOnClose}
+          onCreateTopic={mockOnCreateTopic}
+          onNotify={mockOnNotify}
+        />
+      );
+    });
     expect(screen.getByText('Crear Nuevo Topic')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Escribe un título descriptivo...')).toBeInTheDocument();
   });
 
   test('valida campos requeridos y muestra errores', async () => {
-    render(
-      <CreateTopicModal 
-        show={true}
-        onClose={mockOnClose}
-        onCreateTopic={mockOnCreateTopic}
-        onNotify={mockOnNotify}
-      />
-    );
-
+    await act(async () => {
+      render(
+        <CreateTopicModal 
+          show={true}
+          onClose={mockOnClose}
+          onCreateTopic={mockOnCreateTopic}
+          onNotify={mockOnNotify}
+        />
+      );
+    });
     const submitButton = screen.getByText('Publicar Topic');
-    fireEvent.click(submitButton);
-
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
     await waitFor(() => {
       expect(screen.getByText('El título debe tener al menos 5 caracteres.')).toBeInTheDocument();
       expect(screen.getByText('El contenido debe tener al menos 10 caracteres.')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LoginModal from '../../components/modals/LoginModal';
 
@@ -11,15 +11,17 @@ describe('LoginModal', () => {
     jest.clearAllMocks();
   });
 
-  test('no se renderiza cuando show es false', () => {
-    render(
-      <LoginModal 
-        show={false} 
-        onClose={mockOnClose}
-        onLogin={mockOnLogin}
-        onNotify={mockOnNotify}
-      />
-    );
+  test('no se renderiza cuando show es false', async () => {
+    await act(async () => {
+      render(
+        <LoginModal 
+          show={false} 
+          onClose={mockOnClose}
+          onLogin={mockOnLogin}
+          onNotify={mockOnNotify}
+        />
+      );
+    });
     expect(screen.queryByText('Iniciar Sesión')).not.toBeInTheDocument();
   });
 

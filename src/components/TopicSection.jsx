@@ -901,7 +901,7 @@ const TopicSection = ({ onNotify, user }) => {
         onNotify={onNotify} 
       />
       <PostModal
-        show={showThreadModal && activeThreadPost !== null}
+        show={showThreadModal && !!activeThreadPost}
         onClose={() => { 
           syncPostsMapFromStorage(); // Sincronizar al cerrar el modal
           setShowThreadModal(false); 

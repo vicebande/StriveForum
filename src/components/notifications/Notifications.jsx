@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const Notifications = ({ notifications = [], onDismiss }) => {
   // Validar que notifications sea un array
@@ -7,10 +8,10 @@ const Notifications = ({ notifications = [], onDismiss }) => {
     return null;
   }
 
-  return (
+  // Usar portal para renderizar todas las notificaciones simultáneamente
+  return createPortal(
     <div className="notifications-container">
       {notifications.map(notif => {
-        // Validar que cada notificación tenga los campos requeridos
         if (!notif || !notif.id) {
           console.warn('Invalid notification object:', notif);
           return null;
@@ -19,7 +20,8 @@ const Notifications = ({ notifications = [], onDismiss }) => {
           <Notification key={notif.id} notification={notif} onDismiss={onDismiss} />
         );
       })}
-    </div>
+    </div>,
+    document.body
   );
 };
 

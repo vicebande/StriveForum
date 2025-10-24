@@ -22,11 +22,13 @@ const CreateTopicModal = ({ show, onClose, onCreateTopic, onNotify }) => {
       // dar foco al título al abrir
       setTimeout(() => titleRef.current?.focus(), 50);
     } else {
-      // Limpiar formulario cuando se cierra
-      setTitle('');
-      setContent('');
-      setCategory('general');
-      setErrors({});
+      // Limpiar formulario cuando se cierra (defer setState)
+      Promise.resolve().then(() => {
+        setTitle('');
+        setContent('');
+        setCategory('general');
+        setErrors({});
+      });
     }
   }, [show]);
 

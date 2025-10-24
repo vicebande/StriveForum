@@ -133,11 +133,7 @@ function App() {
 
     const handleUnhandledRejection = (event) => {
       console.error('Unhandled promise rejection:', event.reason);
-      addNotification({
-        type: 'error',
-        title: 'Error de conexión',
-        message: 'Problema de conexión. Verifica tu internet e inténtalo de nuevo.'
-      });
+      // Ya no se muestra notificación de error de conexión
     };
 
     window.addEventListener('error', handleUnhandledError);
@@ -333,7 +329,6 @@ function App() {
         handleRegister={handleRegister}
         handleLogout={handleLogout}
       />
-      
       {/* Modales de autenticación */}
       {showLoginModal && (
         <LoginModal

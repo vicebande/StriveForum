@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { isAdmin } from '../utils/roleUtils';
 
 const Navbar = ({ user, onLogout, onShowLogin, onShowRegister }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const navigate = useNavigate();
   const location = useLocation();
 
   // Cerrar dropdown al hacer click fuera

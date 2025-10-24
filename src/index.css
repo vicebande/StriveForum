@@ -3953,6 +3953,14 @@ label {
   min-height: 100vh;
   min-width: 100vw;
   overflow-y: auto;
+  pointer-events: auto;
+}
+
+/* Las notificaciones siempre por encima del backdrop y sin blur */
+.notifications-container, .notification {
+  filter: none !important;
+  backdrop-filter: none !important;
+  pointer-events: auto !important;
 }
 
 .rf-modal {
@@ -5245,7 +5253,7 @@ label {
   position: fixed;
   top: 90px;
   right: 1rem;
-  z-index: 999999;
+  z-index: 2147483647; /* Siempre por encima de cualquier modal u overlay */
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -5263,7 +5271,7 @@ label {
   border: 1px solid rgba(255, 255, 255, 0.1);
   animation: notificationSlideIn 0.3s ease-out;
   max-width: 100%;
-  z-index: 999999;
+  z-index: 2147483647; /* Siempre por encima de cualquier modal u overlay */
   position: relative;
 }
 
