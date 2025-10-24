@@ -431,10 +431,10 @@ const ForumsSection = ({ onNotify }) => {
         {/* Lista de topics estilo Reddit */}
         <div className="topics-list">
           {topics.length === 0 ? (
-            <div className="empty-state text-center py-5">
-              <i className="fas fa-comments fa-4x text-muted mb-3"></i>
-              <h4 className="text-muted">No hay topics todavía</h4>
-              <p className="text-muted mb-4">Sé el primero en iniciar una conversación en la comunidad</p>
+            <div className="empty-state">
+              <i className="fas fa-comments fa-4x"></i>
+              <h4>No hay topics todavía</h4>
+              <p>Sé el primero en iniciar una conversación en la comunidad</p>
               <button className="btn btn-primary" onClick={() => {
                 const currentUser = getCurrentUser();
                 if (!currentUser) {

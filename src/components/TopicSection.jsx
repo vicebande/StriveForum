@@ -793,10 +793,10 @@ const TopicSection = ({ onNotify, user }) => {
 
         {/* Lista de posts mejorada */}
         {posts.length === 0 ? (
-          <div className="empty-state card-custom">
+          <div className="empty-state">
             <i className="fas fa-comments empty-icon"></i>
             <h4>No hay posts todavía</h4>
-            <p className="text-muted">Sé el primero en compartir tu opinión</p>
+            <p>Sé el primero en compartir tu opinión</p>
             <button className="btn btn-primary" onClick={openNewPost}>
               <i className="fas fa-plus"></i> Crear primer post
             </button>
