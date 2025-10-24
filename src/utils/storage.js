@@ -98,7 +98,8 @@ export const registerUser = (userData) => {
     const newUser = {
       ...userData,
       id: Date.now().toString(), // ID único
-      createdAt: Date.now()
+      registeredAt: new Date().toISOString(), // Fecha de registro en formato ISO
+      role: 'user' // Asegurar que tiene role
     };
     
     existingUsers.push(newUser);
@@ -123,10 +124,10 @@ export const verifyUserCredentials = (username, password) => {
       u.password === password
     );
     
-    return user ? { success: true, user } : { success: false, error: 'Credenciales inválidas' };
+    return user ? { success: true, user } : { success: false, message: 'Credenciales inválidas' };
   } catch (error) {
     console.error('❌ Error verifying credentials:', error);
-    return { success: false, error: 'Error verificando credenciales' };
+    return { success: false, message: 'Error verificando credenciales' };
   }
 };
 
@@ -203,4 +204,36 @@ if (typeof window !== 'undefined') {
   window.debugStorage = debugStorage;
   window.clearAllData = clearAllData;
   window.clearAllAppData = clearAllAppData;
+  
+  // Función de test para registro y login
+  window.testRegistration = () => {
+    console.log('=== TESTING REGISTRATION ===');
+    
+    const testUser = {
+      username: 'testuser123',
+      email: 'test@example.com',
+      password: 'Password123!'
+    };
+    
+    console.log('1. Testing registerUser with:', testUser);
+    const result = registerUser(testUser);
+    console.log('Register result:', result);
+    
+    console.log('2. Checking localStorage:');
+    const stored = localStorage.getItem('sf_registered_users');
+    console.log('Raw stored data:', stored);
+    
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      console.log('Parsed data:', parsed);
+      console.log('User found in storage:', parsed.find(u => u.username === testUser.username));
+    }
+    
+    console.log('3. Testing verifyUserCredentials:');
+    const loginResult = verifyUserCredentials(testUser.username, testUser.password);
+    console.log('Login result:', loginResult);
+    
+    console.log('=== TEST COMPLETE ===');
+    return { register: result, login: loginResult };
+  };
 }

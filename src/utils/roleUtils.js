@@ -331,11 +331,23 @@ export const getAllUsers = () => {
     });
   }
   
-  // Agregar estado de bloqueo a todos los usuarios
-  return registeredUsers.map(user => ({
-    ...user,
-    isBlocked: isUserBlocked(user.username)
-  }));
+  // Normalizar usuarios y agregar estado de bloqueo
+  return registeredUsers.map(user => {
+    // Migrar createdAt a registeredAt si es necesario
+    let registeredAt = user.registeredAt;
+    if (!registeredAt && user.createdAt) {
+      // Si createdAt es un timestamp, convertir a ISO string
+      registeredAt = typeof user.createdAt === 'number' 
+        ? new Date(user.createdAt).toISOString()
+        : user.createdAt;
+    }
+    
+    return {
+      ...user,
+      registeredAt: registeredAt || new Date().toISOString(), // Fallback a fecha actual
+      isBlocked: isUserBlocked(user.username)
+    };
+  });
 };
 
 // Obtener número de topics creados por un usuario
