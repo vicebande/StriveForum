@@ -277,6 +277,7 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
   }, [user.username]);
 
   // Cargar estadísticas anteriores del localStorage y guardar las actuales
+  // Cargar estadísticas previas solo al montar
   useEffect(() => {
     const statsKey = `sf_user_stats_${user.username}`;
     const savedStats = JSON.parse(localStorage.getItem(statsKey) || 'null');
@@ -287,8 +288,11 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
       // Si no hay estadísticas anteriores, usar las actuales como base
       setPreviousStats(currentStats);
     }
+  }, [user.username, currentStats]); // Agregar currentStats como dependencia
 
-    // Guardar las estadísticas actuales para la próxima vez
+  // Guardar estadísticas cuando cambien
+  useEffect(() => {
+    const statsKey = `sf_user_stats_${user.username}`;
     localStorage.setItem(statsKey, JSON.stringify(currentStats));
   }, [currentStats, user.username]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -12,17 +12,9 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [animationClass, setAnimationClass] = useState('');
-  const [passwordStrength, setPasswordStrength] = useState(0);
 
   useEffect(() => {
     if (show) {
-      setUsername('');
-      setEmail('');
-      setPassword('');
-      setConfirm('');
-      setErrors({});
-      setIsSubmitting(false);
-      setPasswordStrength(0);
       setIsAnimating(true);
       setAnimationClass('auth-modal-enter');
       
@@ -32,6 +24,14 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
       
       return () => clearTimeout(timer);
     } else if (isAnimating) {
+      // Limpiar formulario cuando se cierra
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setConfirm('');
+      setErrors({});
+      setIsSubmitting(false);
+      
       setAnimationClass('auth-modal-exit');
       const timer = setTimeout(() => {
         setIsAnimating(false);
@@ -41,15 +41,15 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
     }
   }, [show, isAnimating]);
 
-  useEffect(() => {
-    // Calculate password strength
+  // Calcular la fuerza de la contraseña cuando cambie
+  const passwordStrength = useMemo(() => {
     let strength = 0;
     if (password.length >= 8) strength += 20;
     if (/[a-z]/.test(password)) strength += 20;
     if (/[A-Z]/.test(password)) strength += 20;
     if (/\d/.test(password)) strength += 20;
     if (/[@$!%*?&]/.test(password)) strength += 20;
-    setPasswordStrength(strength);
+    return strength;
   }, [password]);
 
   const handleClose = useCallback(() => {

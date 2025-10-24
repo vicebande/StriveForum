@@ -16,14 +16,16 @@ const NewPostModal = ({ show, onClose, onSubmit, onNotify }) => {
 
   useEffect(() => {
     if (show) {
-      setTitle('');
-      setDescription('');
-      setMessage('');
-      setErrors({});
       setTimeout(() => {
         const el = document.querySelector('.new-post-modal input');
         if (el) el.focus();
       }, 40);
+    } else {
+      // Limpiar formulario cuando se cierra
+      setTitle('');
+      setDescription('');
+      setMessage('');
+      setErrors({});
     }
   }, [show]);
 

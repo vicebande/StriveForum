@@ -17,6 +17,7 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   
   // Verificar cooldown al abrir el modal
+  // Verificar cooldown de reporte
   useEffect(() => {
     if (show && reporterUser && reportedUsername) {
       const canReport = canReportUser(reporterUser.username, reportedUsername);
@@ -35,6 +36,8 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
         }, 1000);
         
         return () => clearInterval(interval);
+      } else {
+        setCooldownRemaining(0);
       }
     }
   }, [show, reporterUser, reportedUsername]);
@@ -42,9 +45,6 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
   // Animaciones del modal
   useEffect(() => {
     if (show) {
-      setReason(REPORT_REASONS.SPAM);
-      setDescription('');
-      setIsSubmitting(false);
       setIsAnimating(true);
       setAnimationClass('auth-modal-enter');
       
@@ -54,6 +54,11 @@ const ReportUserModal = ({ show, onClose, reportedUsername, postId, topicId, rep
       
       return () => clearTimeout(timer);
     } else if (isAnimating) {
+      // Limpiar formulario cuando se cierra
+      setReason(REPORT_REASONS.SPAM);
+      setDescription('');
+      setIsSubmitting(false);
+      
       setAnimationClass('auth-modal-exit');
       const timer = setTimeout(() => {
         setIsAnimating(false);

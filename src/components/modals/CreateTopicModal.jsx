@@ -16,14 +16,17 @@ const CreateTopicModal = ({ show, onClose, onCreateTopic, onNotify }) => {
     }
   }, []);
 
+  // Resetear formulario cuando se abre el modal
   useEffect(() => {
     if (show) {
+      // dar foco al título al abrir
+      setTimeout(() => titleRef.current?.focus(), 50);
+    } else {
+      // Limpiar formulario cuando se cierra
       setTitle('');
       setContent('');
       setCategory('general');
       setErrors({});
-      // dar foco al título al abrir
-      setTimeout(() => titleRef.current?.focus(), 50);
     }
   }, [show]);
 

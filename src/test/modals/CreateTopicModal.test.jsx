@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import CreateTopicModal from '../../components/modals/CreateTopicModal';
 
@@ -27,10 +26,23 @@ describe('CreateTopicModal', () => {
         onNotify={mockOnNotify}
       />
     );
-    expect(screen.queryByText('Crear Topic')).not.toBeInTheDocument();
+    expect(screen.queryByText('Crear Nuevo Topic')).not.toBeInTheDocument();
   });
 
-  test('valida campos requeridos', () => {
+  test('se renderiza cuando show es true', () => {
+    render(
+      <CreateTopicModal 
+        show={true}
+        onClose={mockOnClose}
+        onCreateTopic={mockOnCreateTopic}
+        onNotify={mockOnNotify}
+      />
+    );
+    expect(screen.getByText('Crear Nuevo Topic')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Escribe un título descriptivo...')).toBeInTheDocument();
+  });
+
+  test('valida campos requeridos y muestra errores', async () => {
     render(
       <CreateTopicModal 
         show={true}
@@ -40,18 +52,16 @@ describe('CreateTopicModal', () => {
       />
     );
 
-    act(() => {
-      const submitButton = screen.getByText('Publicar Topic');
-      fireEvent.click(submitButton);
-    });
+    const submitButton = screen.getByText('Publicar Topic');
+    fireEvent.click(submitButton);
 
-    expect(mockOnNotify).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'error',
-      title: 'Error de validación'
-    }));
+    await waitFor(() => {
+      expect(screen.getByText('El título debe tener al menos 5 caracteres.')).toBeInTheDocument();
+      expect(screen.getByText('El contenido debe tener al menos 10 caracteres.')).toBeInTheDocument();
+    });
   });
 
-  test('envía el topic con datos válidos', () => {
+  test('envía el topic con datos válidos', async () => {
     render(
       <CreateTopicModal 
         show={true}
@@ -63,7 +73,7 @@ describe('CreateTopicModal', () => {
 
     const titleInput = screen.getByPlaceholderText('Escribe un título descriptivo...');
     const contentInput = screen.getByPlaceholderText('Describe tu tema en detalle...');
-    const categorySelect = screen.getByLabelText('Categoría');
+    const categorySelect = screen.getByRole('combobox');
 
     fireEvent.change(titleInput, { target: { value: 'Test Topic Title' } });
     fireEvent.change(contentInput, { target: { value: 'This is a test topic content with more than 10 characters' } });
@@ -72,10 +82,12 @@ describe('CreateTopicModal', () => {
     const submitButton = screen.getByText('Publicar Topic');
     fireEvent.click(submitButton);
 
-    expect(mockOnCreateTopic).toHaveBeenCalledWith({
-      title: 'Test Topic Title',
-      content: 'This is a test topic content with more than 10 characters',
-      category: 'estrategias'
+    await waitFor(() => {
+      expect(mockOnCreateTopic).toHaveBeenCalledWith({
+        title: 'Test Topic Title',
+        content: 'This is a test topic content with more than 10 characters',
+        category: 'estrategias'
+      });
     });
   });
 
@@ -92,5 +104,21 @@ describe('CreateTopicModal', () => {
     expect(screen.getByText('Consejos para un buen topic:')).toBeInTheDocument();
     expect(screen.getByText('Usa un título claro y descriptivo')).toBeInTheDocument();
     expect(screen.getByText('Proporciona detalles suficientes en el contenido')).toBeInTheDocument();
+  });
+
+  test('cierra el modal al hacer clic en cancelar', () => {
+    render(
+      <CreateTopicModal 
+        show={true}
+        onClose={mockOnClose}
+        onCreateTopic={mockOnCreateTopic}
+        onNotify={mockOnNotify}
+      />
+    );
+
+    const cancelButton = screen.getByText('Cancelar');
+    fireEvent.click(cancelButton);
+
+    expect(mockOnClose).toHaveBeenCalled();
   });
 });

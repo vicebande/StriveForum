@@ -6,16 +6,25 @@ import NewPostModal from './modals/NewPostModal';
 import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
 import { isUserBlocked, checkUserPermission, isAdmin } from '../utils/roleUtils';
+import { 
+  TOPICS_KEY, 
+  POSTS_KEY, 
+  safeStorageGet, 
+  safeStorageSet, 
+  debugStorage,
+  clearAllData,
+  safeParse 
+} from '../utils/storage';
 
-const TOPICS_KEY = 'sf_topics';
-const POSTS_KEY = 'sf_postsMap';
 const ACTIVE_THREAD_KEY = 'sf_active_thread';
 
-const safeParse = (raw, fallback) => {
-  try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
-};
-
 const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
+  // Debug de localStorage al cargar el componente
+  useEffect(() => {
+    console.log('🔍 TopicSection mounted - debugging localStorage');
+    debugStorage();
+  }, []);
+
   // Todos los hooks deben ejecutarse antes de cualquier validación o return early
   const getCurrentUser = useCallback(() => {
     try {
@@ -44,13 +53,11 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   }, [onNotify]);
 
   const [topics, setTopics] = useState(() => {
-    const raw = localStorage.getItem(TOPICS_KEY);
-    return safeParse(raw, []);
+    return safeStorageGet(TOPICS_KEY, []);
   });
 
   const [postsMap, setPostsMap] = useState(() => {
-    const raw = localStorage.getItem(POSTS_KEY);
-    return safeParse(raw, {});
+    return safeStorageGet(POSTS_KEY, {});
   });
 
   const [showReplyModal, setShowReplyModal] = useState(false);
@@ -64,11 +71,47 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   const [reportTarget, setReportTarget] = useState(null);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Estado para forzar actualizaciones
 
+  // Sincronizar topics desde localStorage al cargar y cuando haya cambios
+  useEffect(() => {
+    const syncTopicsFromStorage = () => {
+      const storageTopics = safeStorageGet(TOPICS_KEY, []);
+      console.log('🔄 Syncing topics from localStorage:', storageTopics);
+      
+      // Solo actualizar si hay cambios reales
+      setTopics(prevTopics => {
+        const currentDataStr = JSON.stringify(prevTopics);
+        const storageDataStr = JSON.stringify(storageTopics);
+        
+        if (currentDataStr !== storageDataStr) {
+          console.log('📝 Topics state updated from storage');
+          return storageTopics;
+        }
+        return prevTopics;
+      });
+    };
+
+    // Sincronizar al montar el componente
+    syncTopicsFromStorage();
+
+    // Agregar listener para cambios en localStorage
+    const handleStorageChange = (e) => {
+      if (e.key === TOPICS_KEY) {
+        console.log('🔔 localStorage change detected for topics');
+        syncTopicsFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // No incluir topics para evitar loops
+
   // Función para sincronizar postsMap con localStorage
   const syncPostsMapFromStorage = useCallback(() => {
     try {
-      const raw = localStorage.getItem(POSTS_KEY);
-      const storagePostsMap = safeParse(raw, {});
+      const storagePostsMap = safeStorageGet(POSTS_KEY, {});
       
       // Solo actualizar si hay cambios reales
       const currentDataStr = JSON.stringify(postsMap);
@@ -343,6 +386,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   };
 
   const handleCreateTopic = ({ title, description, message }) => {
+    console.log('🔧 Creating topic:', { title, description, message });
     const currentUser = getCurrentUser();
     
     // Verificar si el usuario está bloqueado
@@ -375,21 +419,53 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       category: 'General',
       upvotes: 0
     };
-    setTopics(t => [newTopic, ...t]);
-    setPostsMap(m => ({ 
-      ...m, 
-      [id]: [{ 
-        id: 'p' + Date.now().toString(36), 
-        author: user?.username || 'Anon',
-        authorAvatar: (user?.username || 'A')[0].toUpperCase(),
-        title: 'Primer post',
-        message, 
-        createdAt: Date.now(), 
-        replies: [] 
-      }] 
-    }));
+
+    const newPost = {
+      id: 'p' + Date.now().toString(36), 
+      author: user?.username || 'Anon',
+      authorAvatar: (user?.username || 'A')[0].toUpperCase(),
+      title: 'Primer post',
+      message, 
+      createdAt: Date.now(), 
+      replies: [] 
+    };
+
+    console.log('📝 New topic created:', newTopic);
+    console.log('📝 New post created:', newPost);
+
+    // Actualizar estado local
+    setTopics(t => {
+      const updated = [newTopic, ...t];
+      console.log('📂 Topics updated:', updated);
+      return updated;
+    });
+    setPostsMap(m => {
+      const updated = { ...m, [id]: [newPost] };
+      console.log('📂 PostsMap updated:', updated);
+      return updated;
+    });
+
+    // Persistir inmediatamente en localStorage
+    try {
+      const currentTopics = safeStorageGet(TOPICS_KEY, []);
+      const updatedTopics = [newTopic, ...currentTopics];
+      safeStorageSet(TOPICS_KEY, updatedTopics);
+
+      const currentPostsMap = safeStorageGet(POSTS_KEY, {});
+      const updatedPostsMap = { ...currentPostsMap, [id]: [newPost] };
+      safeStorageSet(POSTS_KEY, updatedPostsMap);
+
+      // Verificar que se guardó correctamente
+      console.log('� Verification after save:');
+      debugStorage();
+    } catch (error) {
+      console.error('❌ Error saving topic to localStorage:', error);
+    }
+
     setShowCreateModal(false);
     if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
+    
+    console.log('🔄 Navigating to topic:', `topic:${id}`);
     if (typeof onNavigate === 'function') onNavigate(`topic:${id}`);
   };
 
@@ -541,6 +617,49 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
             <h2><i className="fas fa-comments"></i> Temas</h2>
             <div>
               <button className="btn btn-primary me-2" onClick={openCreateTopic}>Crear Topic</button>
+              
+              {/* Botones de debug - remover en producción */}
+              <button 
+                onClick={() => {
+                  console.log('🔍 Debug Storage clicked');
+                  debugStorage();
+                  
+                  // Debug adicional - revisar localStorage directamente
+                  console.log('📱 Raw localStorage check:');
+                  console.log('TOPICS_KEY content:', localStorage.getItem(TOPICS_KEY));
+                  console.log('POSTS_KEY content:', localStorage.getItem(POSTS_KEY));
+                  
+                  // Debug adicional - revisar estado actual
+                  console.log('📊 Current state:');
+                  console.log('topics:', topics);
+                  console.log('postsMap:', postsMap);
+                  
+                  // Debug adicional - revisar todas las claves de localStorage
+                  console.log('🗂️ All localStorage keys:');
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    console.log(`  ${key}:`, localStorage.getItem(key));
+                  }
+                }} 
+                className="btn btn-info me-2"
+                style={{ fontSize: '12px' }}
+              >
+                Debug
+              </button>
+              
+              <button 
+                onClick={() => {
+                  clearAllData();
+                  setTopics([]);
+                  setPostsMap({});
+                  console.log('🧹 All data cleared');
+                }} 
+                className="btn btn-warning me-2"
+                style={{ fontSize: '12px' }}
+              >
+                Limpiar
+              </button>
+              
               <button className="btn btn-secondary" onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}>Volver a categorías</button>
             </div>
           </div>
@@ -566,6 +685,42 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   }
 
   // Vista dentro de un topic (mejorada)
+
+  // Verificar si el topic existe
+  if (!topic && currentTopicId) {
+    return (
+      <section className="topic-section">
+        <div className="container">
+          <div className="topic-header card-custom">
+            <div className="topic-header-content">
+              <div className="topic-header-left">
+                <button 
+                  className="btn-back" 
+                  onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                  aria-label="Volver"
+                >
+                  <i className="fas fa-arrow-left"></i>
+                </button>
+                <div className="topic-info">
+                  <h2 className="topic-title">Topic no encontrado</h2>
+                  <p className="topic-description">
+                    El topic que buscas no existe o ha sido eliminado.
+                  </p>
+                  <button 
+                    className="btn btn-primary mt-3"
+                    onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                  >
+                    <i className="fas fa-arrow-left"></i> Volver a los foros
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="topic-section">
       <div className="container">
@@ -737,7 +892,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
         onNotify={onNotify} 
       />
       <PostModal
-        show={showThreadModal}
+        show={showThreadModal && activeThreadPost !== null}
         onClose={() => { 
           syncPostsMapFromStorage(); // Sincronizar al cerrar el modal
           setShowThreadModal(false); 

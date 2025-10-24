@@ -10,19 +10,27 @@ import RegisterModal from './components/modals/RegisterModal';
 import Notifications from './components/notifications/Notifications';
 import TopicSection from './components/TopicSection';
 import { isUserBlocked } from './utils/roleUtils';
+import { 
+  registerUser,
+  verifyUserCredentials,
+  getAuthSession,
+  saveAuthSession,
+  clearAuthSession,
+  getCurrentSection,
+  saveCurrentSection
+} from './utils/storage';
 
 // ===== UTILITY FUNCTIONS =====
-const clearFakeDataFromLocalStorage = () => {
-  try {
-    // Clear any existing fake topics and posts
-    localStorage.removeItem('sf_topics');
-    localStorage.removeItem('sf_postsMap');
-    
-    console.log('Fake data cleared from localStorage');
-  } catch (error) {
-    console.warn('Error clearing fake data from localStorage:', error);
-  }
-};
+// Función comentada - era para limpiar datos fake
+// const clearFakeDataFromLocalStorage = () => {
+//   try {
+//     localStorage.removeItem('sf_topics');
+//     localStorage.removeItem('sf_postsMap');
+//     console.log('Fake data cleared from localStorage');
+//   } catch (error) {
+//     console.warn('Error clearing fake data from localStorage:', error);
+//   }
+// };
 
 // ===== MOCK AUTH SERVICE (preparado para API real) =====
 const AuthService = {
@@ -52,32 +60,18 @@ const AuthService = {
           return;
         }
         
-        // Verificar que el usuario esté registrado
-        const registeredUsers = JSON.parse(localStorage.getItem('sf_registered_users') || '[]');
-        const existingUser = registeredUsers.find(u => 
-          u.username.toLowerCase() === username.toLowerCase()
-        );
+        // Usar función centralizada para verificar credenciales
+        const userResult = verifyUserCredentials(username, password);
         
-        if (!existingUser) {
-          reject({ message: 'Usuario no registrado. Debes crear una cuenta primero.' });
-          return;
-        }
-        
-        // Para el mock, cualquier contraseña que cumpla los requisitos es válida
-        // En un sistema real, aquí se verificaría contra la contraseña hash almacenada
-        const strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!strongPwdRegex.test(password)) {
-          reject({ message: 'Contraseña inválida. Debe cumplir con los requisitos de seguridad.' });
+        if (!userResult.success) {
+          reject({ message: userResult.message });
           return;
         }
         
         // Login exitoso para usuario registrado
         resolve({
           success: true,
-          user: {
-            ...existingUser,
-            // Mantener la información actualizada del usuario registrado
-          },
+          user: userResult.user,
           token: 'mock_jwt_token_' + Date.now()
         });
       }, 800); // Simula latencia de red
@@ -91,36 +85,17 @@ const AuthService = {
     
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const { username, email } = userData;
+        // Usar función centralizada de storage
+        const result = registerUser(userData);
         
-        // Mock: validar si usuario ya existe
-        const existingUsers = JSON.parse(localStorage.getItem('sf_registered_users') || '[]');
-        const userExists = existingUsers.some(u => 
-          u.username.toLowerCase() === username.toLowerCase() || 
-          u.email.toLowerCase() === email.toLowerCase()
-        );
-        
-        if (userExists) {
-          reject({ message: 'El usuario o email ya está registrado' });
-        } else {
-          const newUser = {
-            id: 'user_' + Date.now(),
-            username,
-            email,
-            role: 'user',
-            avatar: null,
-            createdAt: new Date().toISOString(),
-          };
-          
-          // Guardar en mock storage
-          existingUsers.push(newUser);
-          localStorage.setItem('sf_registered_users', JSON.stringify(existingUsers));
-          
+        if (result.success) {
           resolve({
             success: true,
-            user: newUser,
+            user: result.user,
             token: 'mock_jwt_token_' + Date.now()
           });
+        } else {
+          reject({ message: result.error });
         }
       }, 1000);
     });
@@ -160,20 +135,8 @@ const App = () => {
   
   // Auth state con estructura preparada para API
   const [auth, setAuth] = useState(() => {
-    try {
-      const stored = localStorage.getItem('sf_auth_session');
-      if (stored) {
-        const session = JSON.parse(stored);
-        // Verificar si la sesión no ha expirado (ejemplo: 24 horas)
-        const expiry = new Date(session.expiresAt);
-        if (expiry > new Date()) {
-          return session;
-        }
-      }
-    } catch (err) {
-      console.error('Error loading auth session:', err);
-    }
-    return {
+    // Usar función centralizada de storage
+    return getAuthSession() || {
       isAuthenticated: false,
       user: null,
       token: null,
@@ -182,11 +145,8 @@ const App = () => {
   });
 
   const [currentSection, setCurrentSection] = useState(() => {
-    try {
-      return localStorage.getItem('sf_current_section') || 'home';
-    } catch {
-      return 'home';
-    }
+    // Usar función centralizada de storage
+    return getCurrentSection();
   });
 
   const [showLogin, setShowLogin] = useState(false);
@@ -198,31 +158,25 @@ const App = () => {
   
   // Clear fake data on app startup
   useEffect(() => {
-    clearFakeDataFromLocalStorage();
+    // clearFakeDataFromLocalStorage(); // COMENTADO: Esto borraba los datos al recargar
+    console.log('🚀 App initialized - NOT clearing localStorage data');
   }, []); // Run only once on app startup
 
   // ===== PERSISTENCE =====
   
   // Guardar sesión en localStorage
+  // Guardar sesión en localStorage
   useEffect(() => {
-    try {
-      if (auth.isAuthenticated) {
-        localStorage.setItem('sf_auth_session', JSON.stringify(auth));
-      } else {
-        localStorage.removeItem('sf_auth_session');
-      }
-    } catch (err) {
-      console.error('Error saving auth session:', err);
+    if (auth.isAuthenticated) {
+      saveAuthSession(auth);
+    } else {
+      clearAuthSession();
     }
   }, [auth]);
 
   // Guardar sección actual
   useEffect(() => {
-    try {
-      localStorage.setItem('sf_current_section', currentSection);
-    } catch (err) {
-      console.error('Error saving section:', err);
-    }
+    saveCurrentSection(currentSection);
   }, [currentSection]);
 
   // ===== NOTIFICATIONS =====

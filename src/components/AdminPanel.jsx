@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   isAdmin, 
   getAllReports, 
@@ -24,13 +24,7 @@ const AdminPanel = ({ user, onNotify }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userActivity, setUserActivity] = useState([]);
 
-  useEffect(() => {
-    if (user && isAdmin(user)) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const allReports = getAllReports();
     const allUsers = getAllUsers();
     const blocked = getBlockedUsers();
@@ -38,7 +32,13 @@ const AdminPanel = ({ user, onNotify }) => {
     setReports(allReports);
     setUsers(allUsers);
     setBlockedUsers(blocked);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && isAdmin(user)) {
+      loadData();
+    }
+  }, [user, loadData]);
 
   const handleBlockUser = (targetUsername, reason = 'Violación de las reglas del foro') => {
     if (window.confirm('¿Estás seguro de que deseas bloquear a este usuario?')) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import RecentActivity from './RecentActivity';
 
 const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
@@ -8,7 +8,7 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
   const ytId = match ? match[1] : null;
   const poster = '/static/img/hero-poster.jpg';
 
-  const [embedActive, setEmbedActive] = useState(false);
+  const [embedActive] = useState(true); // Siempre activo
 
   // Calcular estadísticas reales de la comunidad
   const communityStats = useMemo(() => {
@@ -43,11 +43,6 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
         totalReplies: 0
       };
     }
-  }, []);
-
-  // Activar embed al montar para forzar carga con autoplay
-  useEffect(() => {
-    setEmbedActive(true);
   }, []);
 
   const getEmbedSrc = () => {

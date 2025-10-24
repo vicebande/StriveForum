@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import CreateTopicModal from './modals/CreateTopicModal';
 import { checkUserPermission, isUserBlocked, handleTopicVote, validateAndCleanVoteData } from '../utils/roleUtils';
+import { 
+  TOPICS_KEY, 
+  POSTS_KEY, 
+  safeStorageGet, 
+  safeStorageSet 
+} from '../utils/storage';
 
 const ForumsSection = ({ onNotify, onNavigate }) => {
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
@@ -9,26 +15,55 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [topics, setTopics] = useState(() => {
-    try {
-      // Cargar topics existentes, empezar con array vacío si no hay datos
-      const storedTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      
-      // Validar y limpiar datos de votos para prevenir valores negativos
-      validateAndCleanVoteData();
-      
-      // Retornar los topics almacenados (puede ser array vacío)
-      return storedTopics;
-    } catch (error) {
-      console.error('Error inicializando topics:', error);
-      return [];
-    }
+    console.log('🔄 ForumsSection: Initializing topics from storage');
+    const storedTopics = safeStorageGet(TOPICS_KEY, []);
+    console.log('📂 ForumsSection: Loaded topics:', storedTopics);
+    
+    // Validar y limpiar datos de votos para prevenir valores negativos
+    validateAndCleanVoteData();
+    
+    return storedTopics;
   });
 
   // useEffect para limpiar datos de localStorage solo al montar el componente
   useEffect(() => {
+    console.log('🔄 ForumsSection: Component mounted');
+    
     // Validar y limpiar datos una sola vez al cargar
     validateAndCleanVoteData();
-  }, []); // Sin dependencias para ejecutar solo una vez
+    
+    // Sincronizar topics desde localStorage
+    const syncTopicsFromStorage = () => {
+      const storageTopics = safeStorageGet(TOPICS_KEY, []);
+      console.log('🔄 ForumsSection: Syncing topics from storage:', storageTopics);
+      
+      // Solo actualizar si hay cambios reales
+      setTopics(prevTopics => {
+        const currentDataStr = JSON.stringify(prevTopics);
+        const storageDataStr = JSON.stringify(storageTopics);
+        
+        if (currentDataStr !== storageDataStr) {
+          console.log('📝 ForumsSection: Topics state updated from storage');
+          return storageTopics;
+        }
+        return prevTopics;
+      });
+    };
+
+    // Listener para cambios en localStorage
+    const handleStorageChange = (e) => {
+      if (e.key === TOPICS_KEY) {
+        console.log('🔔 ForumsSection: localStorage change detected for topics');
+        syncTopicsFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // No incluir topics para evitar loops
 
   const handleSort = (type) => {
     setSortBy(type);
@@ -164,19 +199,19 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
 
     // Persistir en localStorage
     try {
+      console.log('💾 ForumsSection: Saving new topic to storage');
+      
       // Cargar topics existentes del localStorage
-      let storedData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+      const currentTopics = safeStorageGet(TOPICS_KEY, []);
+      const updatedTopics = [newTopic, ...currentTopics];
+      safeStorageSet(TOPICS_KEY, updatedTopics);
       
-      // Crear el topic vacío (sin posts iniciales)
-      storedData[topicId] = [];
-      
-      // Guardar el topic en la lista general
-      const allTopics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      allTopics.unshift(newTopic);
-      localStorage.setItem('sf_topics', JSON.stringify(allTopics));
-      
-      // Guardar posts
-      localStorage.setItem('sf_postsMap', JSON.stringify(storedData));
+      // Cargar postsMap existente y agregar topic vacío
+      const currentPostsMap = safeStorageGet(POSTS_KEY, {});
+      const updatedPostsMap = { ...currentPostsMap, [topicId]: [] };
+      safeStorageSet(POSTS_KEY, updatedPostsMap);
+
+      console.log('✅ ForumsSection: Topic saved successfully');
 
       // Cerrar modal y notificar
       setShowCreateModal(false);
@@ -191,11 +226,12 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
 
       // Navegar al nuevo topic
       if (onNavigate) {
+        console.log('🧭 ForumsSection: Navigating to topic:', topicId);
         onNavigate(`topic:${topicId}`);
       }
 
     } catch (error) {
-      console.error('Error al crear topic:', error);
+      console.error('❌ ForumsSection: Error al crear topic:', error);
       if (onNotify) {
         onNotify({
           type: 'error',

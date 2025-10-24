@@ -35,10 +35,12 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
   }, []);
 
   useEffect(() => {
-    setPost(initialPost || null);
     if (initialPost) {
+      setPost(initialPost);
       // Cargar replies desde localStorage si existen
       loadRepliesFromStorage(initialPost.id);
+    } else {
+      setPost(null);
     }
   }, [initialPost, loadRepliesFromStorage]);
 
@@ -109,7 +111,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
         message: 'Tu respuesta se ha añadido correctamente'
       });
     }
-  }, [getCurrentUser, persistReply, post?.id, replyingTo, onNotify, onReplyAdded]);
+  }, [getCurrentUser, persistReply, post, replyingTo, onNotify, onReplyAdded]);
 
   const handleReplyToReply = useCallback((reply) => {
     setReplyingTo(reply);
@@ -259,9 +261,14 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
       ...main,
       childReplies: nestedReplies.filter(nested => nested.parentId === main.id)
     }));
-  }, [post?.replies, sortBy]);
+  }, [post, sortBy]); // Cambiar a post completo en lugar de post?.replies
 
-  if (!show || !post) return null;
+  if (!show || !post) {
+    if (show && !post) {
+      console.warn('⚠️ PostModal: Intentando mostrar modal sin post válido', { show, post });
+    }
+    return null;
+  }
 
   return (
     <div className="rf-modal-backdrop" onClick={onClose}>

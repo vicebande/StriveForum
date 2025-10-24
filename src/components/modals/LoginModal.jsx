@@ -10,10 +10,6 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
 
   useEffect(() => {
     if (show) {
-      setUsername('');
-      setPassword('');
-      setErrors({});
-      setIsSubmitting(false);
       setIsAnimating(true);
       setAnimationClass('auth-modal-enter');
       
@@ -24,6 +20,12 @@ const LoginModal = ({ show, onClose, onLogin, onNotify }) => {
       
       return () => clearTimeout(timer);
     } else if (isAnimating) {
+      // Limpiar formulario cuando se cierra
+      setUsername('');
+      setPassword('');
+      setErrors({});
+      setIsSubmitting(false);
+      
       setAnimationClass('auth-modal-exit');
       const timer = setTimeout(() => {
         setIsAnimating(false);
