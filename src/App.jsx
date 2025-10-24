@@ -1,44 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import DashboardSection from './components/DashboardSection';
-import ForumsSection from './components/ForumsSection';
-import LearningSection from './components/LearningSection';
-import AdminPanel from './components/AdminPanel';
+import AppRouter from './components/AppRouter';
 import LoginModal from './components/modals/LoginModal';
 import RegisterModal from './components/modals/RegisterModal';
-import Notifications from './components/notifications/Notifications';
-import TopicSection from './components/TopicSection';
 import { isUserBlocked } from './utils/roleUtils';
 import { 
   registerUser,
   verifyUserCredentials,
   getAuthSession,
   saveAuthSession,
-  clearAuthSession,
-  getCurrentSection,
-  saveCurrentSection
+  clearAuthSession
 } from './utils/storage';
-
-// ===== UTILITY FUNCTIONS =====
-// Función comentada - era para limpiar datos fake
-// const clearFakeDataFromLocalStorage = () => {
-//   try {
-//     localStorage.removeItem('sf_topics');
-//     localStorage.removeItem('sf_postsMap');
-//     console.log('Fake data cleared from localStorage');
-//   } catch (error) {
-//     console.warn('Error clearing fake data from localStorage:', error);
-//   }
-// };
 
 // ===== MOCK AUTH SERVICE (preparado para API real) =====
 const AuthService = {
   // Simula llamada a API de login
   login: async (credentials) => {
-    // TODO: Reemplazar con llamada real a API
-    // return await fetch('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })
-    
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         const { username, password } = credentials;
@@ -80,9 +56,6 @@ const AuthService = {
 
   // Simula llamada a API de registro
   register: async (userData) => {
-    // TODO: Reemplazar con llamada real a API
-    // return await fetch('/api/auth/register', { method: 'POST', body: JSON.stringify(userData) })
-    
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         // Usar función centralizada de storage
@@ -103,417 +76,292 @@ const AuthService = {
 
   // Simula verificación de token
   verifyToken: async (token) => {
-    // TODO: Reemplazar con llamada real a API
-    // return await fetch('/api/auth/verify', { headers: { Authorization: `Bearer ${token}` }})
-    
     return new Promise((resolve) => {
       setTimeout(() => {
-        if (token && token.startsWith('mock_jwt_token_')) {
-          resolve({ valid: true });
+        if (token && token.includes('mock_jwt_token')) {
+          resolve({ 
+            success: true, 
+            user: { 
+              id: 'user_1', 
+              username: 'validated_user',
+              role: 'user'
+            } 
+          });
         } else {
-          resolve({ valid: false });
+          resolve({ success: false });
         }
-      }, 300);
+      }, 500);
     });
   },
 
   // Simula logout
   logout: async () => {
-    // TODO: Reemplazar con llamada real a API
-    // return await fetch('/api/auth/logout', { method: 'POST' })
-    
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({ success: true });
-      }, 200);
+      }, 300);
     });
   }
 };
 
-const App = () => {
-  // ===== STATE MANAGEMENT =====
-  
-  // Auth state con estructura preparada para API
-  const [auth, setAuth] = useState(() => {
-    // Usar función centralizada de storage
-    return getAuthSession() || {
-      isAuthenticated: false,
-      user: null,
-      token: null,
-      expiresAt: null
-    };
-  });
-
-  const [currentSection, setCurrentSection] = useState(() => {
-    // Usar función centralizada de storage
-    return getCurrentSection();
-  });
-
-  const [showLogin, setShowLogin] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
+// ===== MAIN APP COMPONENT =====
+function App() {
+  // Estados principales
+  const [user, setUser] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ===== INITIALIZATION =====
-  
-  // Clear fake data on app startup
-  useEffect(() => {
-    // clearFakeDataFromLocalStorage(); // COMENTADO: Esto borraba los datos al recargar
-    console.log('🚀 App initialized - NOT clearing localStorage data');
-  }, []); // Run only once on app startup
-
-  // ===== PERSISTENCE =====
-  
-  // Guardar sesión en localStorage
-  // Guardar sesión en localStorage
-  useEffect(() => {
-    if (auth.isAuthenticated) {
-      saveAuthSession(auth);
-    } else {
-      clearAuthSession();
-    }
-  }, [auth]);
-
-  // Guardar sección actual
-  useEffect(() => {
-    saveCurrentSection(currentSection);
-  }, [currentSection]);
-
-  // ===== NOTIFICATIONS =====
-  
-  const addNotification = useCallback(({ type='info', title='', message='', timeout = 6000 }) => {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-    setNotifications(n => [...n, { id, type, title, message }]);
-    if (timeout > 0) {
-      setTimeout(() => {
-        setNotifications(n => n.filter(x => x.id !== id));
-      }, timeout);
-    }
-    return id;
+  // Función para agregar notificaciones
+  const addNotification = useCallback((notification) => {
+    const id = Date.now().toString();
+    const newNotification = { ...notification, id };
+    setNotifications(prev => [...prev, newNotification]);
   }, []);
 
-  const removeNotification = useCallback((id) => {
-    setNotifications(n => n.filter(x => x.id !== id));
-  }, []);
-
-  // ===== AUTH HANDLERS =====
-  
-  const handleLogout = useCallback(async () => {
-    setIsLoading(true);
-    
-    try {
-      await AuthService.logout();
-      
-      setAuth({
-        isAuthenticated: false,
-        user: null,
-        token: null,
-        expiresAt: null
-      });
-      
-      setCurrentSection('home');
-      
-      addNotification({
-        type: 'info',
-        title: 'Sesión cerrada',
-        message: 'Has cerrado sesión correctamente'
-      });
-    } catch {
+  // Manejador de errores globales
+  useEffect(() => {
+    const handleUnhandledError = (event) => {
+      console.error('Unhandled error:', event.error);
       addNotification({
         type: 'error',
-        title: 'Error',
-        message: 'Hubo un problema al cerrar sesión'
+        title: 'Error inesperado',
+        message: 'Ha ocurrido un error inesperado. Por favor, recarga la página.'
       });
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    const handleUnhandledRejection = (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      addNotification({
+        type: 'error',
+        title: 'Error de conexión',
+        message: 'Problema de conexión. Verifica tu internet e inténtalo de nuevo.'
+      });
+    };
+
+    window.addEventListener('error', handleUnhandledError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleUnhandledError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, [addNotification]);
 
-  // ===== NAVIGATION =====
-  
-  const showSection = useCallback((section) => {
-    try {
-      setShowLogin(false);
-      setShowRegister(false);
-
-      // Validar el parámetro de sección
-      if (!section || typeof section !== 'string') {
-        console.error('Invalid section parameter:', section);
-        setCurrentSection('home');
-        return;
-      }
-
-      // Proteger rutas que requieren autenticación
-      if ((section === 'dashboard' || section === 'admin') && !auth.isAuthenticated) {
-        setShowLogin(true);
-        addNotification({
-          type: 'warning',
-          title: 'Acceso restringido',
-          message: 'Debes iniciar sesión para acceder a esta sección'
-        });
-        return;
-      }
-
-      // Verificar si el usuario está bloqueado al intentar navegar
-      if (auth.isAuthenticated && auth.user && isUserBlocked(auth.user.username)) {
-        // Cerrar sesión automáticamente si está bloqueado
-        handleLogout();
-        addNotification({
-          type: 'error',
-          title: 'Cuenta suspendida',
-          message: 'Tu cuenta ha sido suspendida. Has sido desconectado automáticamente.'
-        });
-        return;
-      }
-      
-      // Validar formato de topic
-      if (section.startsWith('topic:')) {
-        const topicId = section.split(':')[1];
-        if (!topicId || topicId.trim() === '') {
-          console.error('Invalid topic ID:', topicId);
-          setCurrentSection('forums');
-          addNotification({
-            type: 'error',
-            title: 'Error de navegación',
-            message: 'ID de topic inválido'
-          });
-          return;
-        }
-      }
-      
-      setCurrentSection(section);
-    } catch (error) {
-      console.error('Error in showSection:', error);
-      setCurrentSection('home');
-      addNotification({
-        type: 'error',
-        title: 'Error de navegación',
-        message: 'Ha ocurrido un error. Regresando al inicio.'
-      });
-    }
-  }, [auth.isAuthenticated, auth.user, addNotification, handleLogout]);
-
+  // ===== AUTHENTICATION HANDLERS =====
   const handleLogin = useCallback(async (credentials) => {
-    setIsLoading(true);
-    
     try {
       const response = await AuthService.login(credentials);
       
       if (response.success) {
-        // Verificar si el usuario está bloqueado
+        // Verificar si el usuario no está bloqueado
         if (isUserBlocked(response.user.username)) {
-          addNotification({
-            type: 'error',
-            title: 'Cuenta bloqueada',
-            message: 'Tu cuenta ha sido suspendida. Contacta a los administradores para más información.'
-          });
-          setIsLoading(false);
-          return;
+          throw new Error('Tu cuenta ha sido bloqueada. Contacta al administrador.');
         }
 
-        // Calcular fecha de expiración (24 horas)
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        setUser(response.user);
         
-        const session = {
-          isAuthenticated: true,
+        // Guardar sesión en localStorage con tiempo de expiración
+        const sessionData = {
           user: response.user,
           token: response.token,
-          expiresAt: expiresAt.toISOString()
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
         };
+        saveAuthSession(sessionData);
         
-        setAuth(session);
-        setShowLogin(false);
-        setCurrentSection('dashboard');
+        setShowLoginModal(false);
         
+        // Mostrar notificación de bienvenida
         addNotification({
           type: 'success',
-          title: '¡Bienvenido!',
-          message: `Hola ${response.user.username}, sesión iniciada correctamente`
+          title: 'Bienvenido',
+          message: `¡Hola ${response.user.username}! Has iniciado sesión correctamente.`
         });
+        
+        return { success: true };
       }
     } catch (error) {
+      console.error('Login error:', error);
+      
+      // Mostrar notificación de error de login
       addNotification({
         type: 'error',
         title: 'Error de inicio de sesión',
         message: error.message || 'No se pudo iniciar sesión. Verifica tus credenciales.'
       });
-    } finally {
-      setIsLoading(false);
+      
+      throw error;
     }
   }, [addNotification]);
 
   const handleRegister = useCallback(async (userData) => {
-    setIsLoading(true);
-    
     try {
       const response = await AuthService.register(userData);
       
       if (response.success) {
-        // Verificar si el usuario está bloqueado (en caso de que se bloquee durante el registro)
-        if (isUserBlocked(response.user.username)) {
-          addNotification({
-            type: 'error',
-            title: 'Cuenta bloqueada',
-            message: 'Esta cuenta ha sido suspendida. Contacta a los administradores.'
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        // Calcular fecha de expiración (24 horas)
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        setUser(response.user);
         
-        const session = {
-          isAuthenticated: true,
+        // Guardar sesión
+        const sessionData = {
           user: response.user,
           token: response.token,
-          expiresAt: expiresAt.toISOString()
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
+        saveAuthSession(sessionData);
         
-        setAuth(session);
-        setShowRegister(false);
-        setCurrentSection('dashboard');
+        setShowRegisterModal(false);
         
+        // Mostrar notificación de bienvenida para nuevo usuario
         addNotification({
           type: 'success',
-          title: 'Cuenta creada',
-          message: `¡Bienvenido ${response.user.username}! Tu cuenta se ha creado exitosamente.`
+          title: '¡Cuenta creada!',
+          message: `¡Bienvenido ${response.user.username}! Tu cuenta ha sido creada exitosamente.`
         });
+        
+        return { success: true };
       }
     } catch (error) {
-      addNotification({
-        type: 'error',
-        title: 'Error de registro',
-        message: error.message || 'No se pudo crear la cuenta. Intenta nuevamente.'
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Register error:', error);
+      throw error;
     }
   }, [addNotification]);
 
-  // Verificar token al cargar (preparado para API)
+  const handleLogout = useCallback(async () => {
+    try {
+      const currentUsername = user?.username;
+      await AuthService.logout();
+      setUser(null);
+      clearAuthSession();
+      
+      // Mostrar notificación de despedida
+      addNotification({
+        type: 'info',
+        title: 'Sesión cerrada',
+        message: `¡Hasta luego${currentUsername ? ' ' + currentUsername : ''}! Has cerrado sesión correctamente.`
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Mostrar notificación de error de logout
+      addNotification({
+        type: 'error',
+        title: 'Error al cerrar sesión',
+        message: 'Hubo un problema al cerrar la sesión, pero se cerró localmente.'
+      });
+    }
+  }, [user, addNotification]);
+
+  // ===== INITIALIZATION =====
   useEffect(() => {
-    const verifySession = async () => {
-      if (auth.token) {
-        const result = await AuthService.verifyToken(auth.token);
-        if (!result.valid) {
-          await handleLogout();
+    const initializeAuth = async () => {
+      try {
+        const auth = getAuthSession();
+        
+        if (auth && auth.user) {
+          // Verificar si la sesión no ha expirado
+          const expiry = new Date(auth.expiresAt);
+          if (expiry > new Date()) {
+            // Verificar token con el servidor (simulado)
+            const result = await AuthService.verifyToken(auth.token);
+            if (result.success) {
+              setUser(auth.user);
+            } else {
+              clearAuthSession();
+            }
+          } else {
+            clearAuthSession();
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        clearAuthSession();
+        
+        // Mostrar notificación de error de inicialización solo si es un error significativo
+        if (error.message && !error.message.includes('token')) {
           addNotification({
             type: 'warning',
             title: 'Sesión expirada',
-            message: 'Por favor, inicia sesión nuevamente'
+            message: 'Tu sesión anterior ha expirado. Por favor, inicia sesión nuevamente.'
           });
         }
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    verifySession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Ejecutar solo al montar, las dependencias están manejadas internamente
+    initializeAuth();
+  }, [addNotification]);
 
-  const handleUpdateUser = useCallback((updates) => {
-    // Actualizar usuario localmente y luego sincronizar con API
-    const updatedUser = { ...auth.user, ...updates };
-    
-    setAuth(prev => ({
-      ...prev,
-      user: updatedUser
-    }));
-    
-    // TODO: Sincronizar con API
-    // await fetch('/api/users/me', { method: 'PATCH', body: JSON.stringify(updates) })
-    
-    addNotification({
-      type: 'success',
-      title: 'Perfil actualizado',
-      message: 'Tus datos se actualizaron correctamente'
-    });
-  }, [auth.user, addNotification]);
+  // Actualizar sesión cuando cambie el usuario
+  useEffect(() => {
+    if (user) {
+      const auth = getAuthSession();
+      if (auth) {
+        saveAuthSession({
+          ...auth,
+          user: user // Actualizar datos del usuario
+        });
+      }
+    }
+  }, [user]);
 
-  // ===== RENDER =====
-  
-  // Extraer id si la sección es "topic:<id>"
-  const isTopicView = currentSection && typeof currentSection === 'string' && currentSection.startsWith('topic:');
-  const currentTopicId = isTopicView ? currentSection.split(':')[1] : null;
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner">
+          <i className="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>Cargando StriveForum...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <Navbar
-        onNavigate={showSection}
-        isAuthenticated={auth.isAuthenticated}
-        username={auth.user?.username || ''}
-        user={auth.user}
-        onLogout={handleLogout}
-        onShowLogin={() => setShowLogin(true)}
-        onShowRegister={() => setShowRegister(true)}
+    <>
+      <AppRouter 
+        user={user}
+        setUser={setUser}
+        notifications={notifications}
+        setNotifications={setNotifications}
+        showLoginModal={showLoginModal}
+        setShowLoginModal={setShowLoginModal}
+        showRegisterModal={showRegisterModal}
+        setShowRegisterModal={setShowRegisterModal}
+        handleLogin={handleLogin}
+        handleRegister={handleRegister}
+        handleLogout={handleLogout}
       />
-
-      {currentSection === 'home' && (
-        <Hero
-          onRegister={() => setShowRegister(true)}
-          onNavigate={showSection}
-          isAuthenticated={auth.isAuthenticated}
-        />
-      )}
-
-      {currentSection === 'forums' && (
-        <ForumsSection 
-          onNotify={addNotification} 
-          onNavigate={showSection}
-        />
-      )}
-
-      {isTopicView && (
-        <TopicSection
-          currentTopicId={currentTopicId}
-          onNavigate={showSection}
+      
+      {/* Modales de autenticación */}
+      {showLoginModal && (
+        <LoginModal
+          show={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onLogin={handleLogin}
           onNotify={addNotification}
-          user={auth.user}
+          onSwitchToRegister={() => {
+            setShowLoginModal(false);
+            setShowRegisterModal(true);
+          }}
         />
       )}
 
-      {currentSection === 'learning' && <LearningSection />}
-
-      {currentSection === 'dashboard' && auth.isAuthenticated && (
-        <DashboardSection
-          user={auth.user}
-          onNavigate={showSection}
-          onUpdateUser={handleUpdateUser}
+      {showRegisterModal && (
+        <RegisterModal
+          show={showRegisterModal}
+          onClose={() => setShowRegisterModal(false)}
+          onRegister={handleRegister}
           onNotify={addNotification}
+          onSwitchToLogin={() => {
+            setShowRegisterModal(false);
+            setShowLoginModal(true);
+          }}
         />
       )}
-
-      {currentSection === 'admin' && auth.isAuthenticated && (
-        <AdminPanel
-          user={auth.user}
-          onNotify={addNotification}
-        />
-      )}
-
-      <LoginModal 
-        show={showLogin} 
-        onClose={() => setShowLogin(false)} 
-        onLogin={handleLogin} 
-        onNotify={addNotification}
-        isLoading={isLoading}
-      />
-
-      <RegisterModal 
-        show={showRegister} 
-        onClose={() => setShowRegister(false)} 
-        onRegister={handleRegister} 
-        onNotify={addNotification}
-        isLoading={isLoading}
-      />
-
-      <Notifications 
-        notifications={notifications} 
-        onDismiss={removeNotification} 
-      />
-    </div>
+    </>
   );
-};
+}
 
 export default App;

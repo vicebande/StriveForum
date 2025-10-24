@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import PostModal from './modals/PostModal';
 import CreateTopicModal from './modals/CreateTopicModal';
 import PostThreadModal from './modals/PostThreadModal';
@@ -6,6 +7,7 @@ import NewPostModal from './modals/NewPostModal';
 import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
 import { isUserBlocked, checkUserPermission, isAdmin } from '../utils/roleUtils';
+import { shareTopicUrl, sharePostUrl } from '../utils/shareUtils';
 import { 
   TOPICS_KEY, 
   POSTS_KEY, 
@@ -18,7 +20,9 @@ import {
 
 const ACTIVE_THREAD_KEY = 'sf_active_thread';
 
-const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
+const TopicSection = ({ onNotify, user }) => {
+  const navigate = useNavigate();
+  const { topicId: currentTopicId } = useParams();
   // Debug de localStorage al cargar el componente
   useEffect(() => {
     console.log('🔍 TopicSection mounted - debugging localStorage');
@@ -172,16 +176,14 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
       setPostsMap(newPostsMap);
 
       // 4. Redirigir a foros después de eliminar
-      if (onNavigate && typeof onNavigate === 'function') {
-        onNavigate('forums');
-      }
+      navigate('/forums');
 
       return 'Topic eliminado exitosamente';
     } catch (error) {
       console.error('Error eliminando topic:', error);
       throw new Error(`No se pudo eliminar el topic: ${error.message}`);
     }
-  }, [currentTopicId, topic, onNavigate]);
+  }, [currentTopicId, topic, navigate]);
 
   useEffect(() => {
     try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch { /* ignore */ }
@@ -269,9 +271,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
   // Validación de props críticas después de todos los hooks
   if (!currentTopicId) {
     console.error('TopicSection: currentTopicId is required');
-    if (onNavigate && typeof onNavigate === 'function') {
-      onNavigate('forums');
-    }
+    navigate('/forums');
     return null;
   }
 
@@ -466,7 +466,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
     if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
     
     console.log('🔄 Navigating to topic:', `topic:${id}`);
-    if (typeof onNavigate === 'function') onNavigate(`topic:${id}`);
+    navigate(`/topic/${id}`);
   };
 
   const handleReplySubmit = ({ message }) => {
@@ -591,20 +591,11 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
 
   const handleShare = async (e, post) => {
     e.stopPropagation();
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: post.title || 'Post',
-          text: post.message,
-          url: window.location.href
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          onNotify && onNotify({ type: 'info', title: 'Compartir', message: 'No se pudo compartir' });
-        }
-      }
-    } else {
-      onNotify && onNotify({ type: 'info', title: 'Copiado', message: 'Link copiado al portapapeles' });
+    try {
+      await sharePostUrl(post, currentTopicId, onNotify);
+    } catch (err) {
+      console.error('Error sharing post:', err);
+      onNotify && onNotify({ type: 'error', title: 'Error', message: 'No se pudo compartir' });
     }
   };
 
@@ -660,13 +651,13 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
                 Limpiar
               </button>
               
-              <button className="btn btn-secondary" onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}>Volver a categorías</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/forums')}>Volver a categorías</button>
             </div>
           </div>
 
           <div>
             {topics.map(t => (
-              <div key={t.id} className="forum-category p-3 mb-2" style={{cursor:'pointer'}} onClick={() => { if (typeof onNavigate === 'function') onNavigate(`topic:${t.id}`); }}>
+              <div key={t.id} className="forum-category p-3 mb-2" style={{cursor:'pointer'}} onClick={() => navigate(`/topic/${t.id}`)}>
                 <div className="d-flex justify-content-between">
                   <div>
                     <strong style={{fontSize:16}}>{t.title}</strong>
@@ -696,7 +687,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
               <div className="topic-header-left">
                 <button 
                   className="btn-back" 
-                  onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                  onClick={() => navigate('/forums')}
                   aria-label="Volver"
                 >
                   <i className="fas fa-arrow-left"></i>
@@ -708,7 +699,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
                   </p>
                   <button 
                     className="btn btn-primary mt-3"
-                    onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                    onClick={() => navigate('/forums')}
                   >
                     <i className="fas fa-arrow-left"></i> Volver a los foros
                   </button>
@@ -730,7 +721,7 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
             <div className="topic-header-left">
               <button 
                 className="btn-back" 
-                onClick={() => { if (typeof onNavigate === 'function') onNavigate('forums'); }}
+                onClick={() => navigate('/forums')}
                 aria-label="Volver"
               >
                 <i className="fas fa-arrow-left"></i>
@@ -756,6 +747,24 @@ const TopicSection = ({ currentTopicId, onNavigate, onNotify, user }) => {
             <div className="topic-header-actions">
               <button className="btn btn-primary" onClick={openNewPost}>
                 <i className="fas fa-plus"></i> Nuevo Post
+              </button>
+              <button 
+                className="btn btn-outline-secondary"
+                onClick={async () => {
+                  console.log('🔗 Sharing topic:', topic);
+                  console.log('🔗 Current topic ID:', currentTopicId);
+                  try {
+                    if (!topic || !topic.id) {
+                      throw new Error('Topic no encontrado o sin ID');
+                    }
+                    await shareTopicUrl(topic, onNotify);
+                  } catch (err) {
+                    console.error('Error sharing topic:', err);
+                    onNotify && onNotify({ type: 'error', title: 'Error', message: 'No se pudo compartir: ' + err.message });
+                  }
+                }}
+              >
+                <i className="fas fa-share-alt"></i> Compartir Topic
               </button>
               
               {/* Botón de eliminar topic - visible para el autor o administradores */}

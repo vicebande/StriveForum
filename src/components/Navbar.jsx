@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAdmin } from '../utils/roleUtils';
 
-const Navbar = ({ onNavigate, isAuthenticated, username, user, onLogout, onShowLogin, onShowRegister }) => {
+const Navbar = ({ user, onLogout, onShowLogin, onShowRegister }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -45,24 +48,22 @@ const Navbar = ({ onNavigate, isAuthenticated, username, user, onLogout, onShowL
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  const handleNavClick = (destination) => {
+  const handleNavClick = () => {
     setMobileMenuOpen(false);
-    if (onNavigate && typeof onNavigate === 'function') {
-      try {
-        onNavigate(destination);
-      } catch (error) {
-        console.error('Error navigating:', error);
-      }
-    }
+  };
+
+  // Función para determinar si una ruta está activa
+  const isActiveRoute = (path) => {
+    return location.pathname === path;
   };
 
   return (
     <nav className="navbar navbar-expand-lg navbar-custom">
       <div className="container">
-        <button className="navbar-brand btn btn-link p-0 border-0" onClick={() => handleNavClick('home')}>
+        <Link to="/" className="navbar-brand">
           <i className="fas fa-fist-raised" aria-hidden="true"></i>
           <span className="brand-text">StriveForum</span>
-        </button>
+        </Link>
 
         <button
           className={`navbar-toggler ${mobileMenuOpen ? 'active' : ''}`}
@@ -80,42 +81,62 @@ const Navbar = ({ onNavigate, isAuthenticated, username, user, onLogout, onShowL
         <div className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`} id="navbarNav">
           <ul className="navbar-nav me-auto">
             <li className="nav-item">
-              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('home')}>
+              <Link 
+                to="/" 
+                className={`nav-link ${isActiveRoute('/') ? 'active' : ''}`}
+                onClick={handleNavClick}
+              >
                 <i className="fas fa-home" aria-hidden="true"></i> Inicio
-              </button>
+              </Link>
             </li>
 
             <li className="nav-item">
-              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('forums')}>
+              <Link 
+                to="/forums" 
+                className={`nav-link ${isActiveRoute('/forums') ? 'active' : ''}`}
+                onClick={handleNavClick}
+              >
                 <i className="fas fa-comments" aria-hidden="true"></i> Foros
-              </button>
+              </Link>
             </li>
 
             <li className="nav-item">
-              <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('learning')}>
+              <Link 
+                to="/learning" 
+                className={`nav-link ${isActiveRoute('/learning') ? 'active' : ''}`}
+                onClick={handleNavClick}
+              >
                 <i className="fas fa-graduation-cap" aria-hidden="true"></i> Aprender
-              </button>
+              </Link>
             </li>
 
-            {isAuthenticated && (
+            {user && (
               <li className="nav-item">
-                <button className="nav-link btn btn-link border-0" onClick={() => handleNavClick('dashboard')}>
+                <Link 
+                  to="/dashboard" 
+                  className={`nav-link ${isActiveRoute('/dashboard') ? 'active' : ''}`}
+                  onClick={handleNavClick}
+                >
                   <i className="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
-                </button>
+                </Link>
               </li>
             )}
 
-            {isAuthenticated && user && isAdmin(user) && (
+            {user && isAdmin(user) && (
               <li className="nav-item">
-                <button className="nav-link btn btn-link border-0 admin-nav-link" onClick={() => handleNavClick('admin')}>
+                <Link 
+                  to="/admin" 
+                  className={`nav-link admin-nav-link ${isActiveRoute('/admin') ? 'active' : ''}`}
+                  onClick={handleNavClick}
+                >
                   <i className="fas fa-shield-alt" aria-hidden="true"></i> Admin
-                </button>
+                </Link>
               </li>
             )}
           </ul>
 
           <div className="navbar-user">
-            {!isAuthenticated ? (
+            {!user ? (
               <div className="auth-buttons">
                 <button className="btn btn-secondary" onClick={() => { setMobileMenuOpen(false); onShowLogin(); }}>
                   <i className="fas fa-sign-in-alt" aria-hidden="true"></i>
@@ -133,44 +154,47 @@ const Navbar = ({ onNavigate, isAuthenticated, username, user, onLogout, onShowL
                   onClick={toggleProfileMenu}
                   type="button"
                 >
-                  <div className="user-avatar">{username ? username[0].toUpperCase() : 'U'}</div>
-                  <span className="user-name">{username || 'Usuario'}</span>
+                  <div className="user-avatar">{user?.username ? user.username[0].toUpperCase() : 'U'}</div>
+                  <span className="user-name">{user?.username || 'Usuario'}</span>
                   <i className="fas fa-chevron-down dropdown-arrow"></i>
                 </button>
 
                 {showProfileMenu && (
                   <div className="profile-menu show">
                     <div className="profile-menu-header">
-                      <div className="user-name">{username || 'Usuario'}</div>
-                      <div className="user-email">Miembro activo</div>
+                      <div className="user-name">{user?.username || 'Usuario'}</div>
+                      <div className="user-email">{user?.email || 'Miembro activo'}</div>
                     </div>
 
-                    <button 
+                    <Link 
+                      to="/forums"
                       className="profile-menu-item" 
-                      onClick={() => handleMenuClick(() => onNavigate('forums'))}
+                      onClick={() => handleMenuClick()}
                     >
                       <i className="fas fa-comments"></i>
                       Foros
-                    </button>
+                    </Link>
 
-                    <button 
+                    <Link 
+                      to="/learning"
                       className="profile-menu-item" 
-                      onClick={() => handleMenuClick(() => onNavigate('learning'))}
+                      onClick={() => handleMenuClick()}
                     >
                       <i className="fas fa-graduation-cap"></i>
                       Aprender
-                    </button>
+                    </Link>
 
                     {user && isAdmin(user) && (
                       <>
                         <div className="profile-menu-divider"></div>
-                        <button 
+                        <Link 
+                          to="/admin"
                           className="profile-menu-item admin-item" 
-                          onClick={() => handleMenuClick(() => onNavigate('admin'))}
+                          onClick={() => handleMenuClick()}
                         >
                           <i className="fas fa-shield-alt"></i>
                           Panel de Admin
-                        </button>
+                        </Link>
                       </>
                     )}
 

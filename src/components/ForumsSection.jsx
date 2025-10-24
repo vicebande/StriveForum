@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CreateTopicModal from './modals/CreateTopicModal';
 import { checkUserPermission, isUserBlocked, handleTopicVote, validateAndCleanVoteData } from '../utils/roleUtils';
+import { shareTopicUrl } from '../utils/shareUtils';
 import { 
   TOPICS_KEY, 
   POSTS_KEY, 
@@ -8,7 +10,8 @@ import {
   safeStorageSet 
 } from '../utils/storage';
 
-const ForumsSection = ({ onNotify, onNavigate }) => {
+const ForumsSection = ({ onNotify, user }) => {
+  const navigate = useNavigate();
   const [sortBy, setSortBy] = useState('hot'); // hot, new, top
   const [votingInProgress, setVotingInProgress] = useState(new Set());
   const [lastVoteTime, setLastVoteTime] = useState({});
@@ -225,10 +228,8 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       }
 
       // Navegar al nuevo topic
-      if (onNavigate) {
-        console.log('🧭 ForumsSection: Navigating to topic:', topicId);
-        onNavigate(`topic:${topicId}`);
-      }
+      console.log('🧭 ForumsSection: Navigating to topic:', topicId);
+      navigate(`/topic/${topicId}`);
 
     } catch (error) {
       console.error('❌ ForumsSection: Error al crear topic:', error);
@@ -240,7 +241,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
         });
       }
     }
-  }, [getCurrentUser, onNotify, onNavigate, setTopics]);
+  }, [getCurrentUser, onNotify, navigate, setTopics]);
 
   const handleVote = useCallback((topicId, voteType) => {
     const currentUser = getCurrentUser();
@@ -345,20 +346,15 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
       return;
     }
     
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: topic.title,
-          text: topic.description,
-          url: window.location.href
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          onNotify && onNotify({ type: 'info', title: 'Compartir', message: 'No se pudo compartir' });
-        }
-      }
-    } else {
-      onNotify && onNotify({ type: 'info', title: 'Compartir', message: 'Función no soportada en este navegador' });
+    try {
+      await shareTopicUrl(topic, onNotify);
+    } catch (err) {
+      console.error('Error sharing topic:', err);
+      onNotify && onNotify({ 
+        type: 'error', 
+        title: 'Error', 
+        message: 'No se pudo compartir el topic' 
+      });
     }
   };
 
@@ -471,10 +467,10 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
               <div 
                 key={topic.id} 
                 className="topic-card-reddit"
-                onClick={() => onNavigate(`topic:${topic.id}`)}
+                onClick={() => navigate(`/topic/${topic.id}`)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter') onNavigate(`topic:${topic.id}`); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/topic/${topic.id}`); }}
               >
                 {/* Voting sidebar */}
                 <div className="vote-sidebar">
@@ -547,7 +543,7 @@ const ForumsSection = ({ onNotify, onNavigate }) => {
                           });
                           return;
                         }
-                        onNavigate(`topic:${topic.id}`); 
+                        navigate(`/topic/${topic.id}`); 
                       }}
                       aria-label={`${topic.comments} comentarios`}
                     >
