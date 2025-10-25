@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const StatCard = ({ icon, title, value, delta }) => (
   <div className="dashboard-stat-card card-custom">
@@ -254,6 +255,7 @@ const getRelativeTime = (dateString) => {
 };
 
 const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, onNotify }) => {
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [previousStats, setPreviousStats] = useState(null);
 
@@ -436,7 +438,7 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
               Accesos Rápidos
             </h3>
             <div className="actions-grid">
-              <button className="action-card card-custom" onClick={() => onNavigate('forums')}>
+              <button className="action-card card-custom" onClick={() => navigate('/forums')}>
                 <div className="action-icon">
                   <i className="fas fa-comments" />
                 </div>
@@ -447,7 +449,7 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
                 <i className="fas fa-arrow-right action-arrow" />
               </button>
 
-              <button className="action-card card-custom" onClick={() => onNavigate('learning')}>
+              <button className="action-card card-custom" onClick={() => navigate('/learning')}>
                 <div className="action-icon">
                   <i className="fas fa-graduation-cap" />
                 </div>
