@@ -8,6 +8,7 @@ import DeleteTopicModal from './modals/DeleteTopicModal';
 import ReportUserModal from './modals/ReportUserModal';
 import { isUserBlocked, checkUserPermission, isAdmin } from '../utils/roleUtils';
 import { shareTopicUrl, sharePostUrl } from '../utils/shareUtils';
+import { TopicsAPI, PostsAPI } from '../services/api';
 import { 
   TOPICS_KEY, 
   POSTS_KEY, 
@@ -23,6 +24,7 @@ const ACTIVE_THREAD_KEY = 'sf_active_thread';
 const TopicSection = ({ onNotify, user }) => {
   const navigate = useNavigate();
   const { topicId: currentTopicId } = useParams();
+  
   // Debug de localStorage al cargar el componente
   useEffect(() => {
     console.log('🔍 TopicSection mounted - debugging localStorage');
@@ -56,6 +58,12 @@ const TopicSection = ({ onNotify, user }) => {
     }
   }, [onNotify]);
 
+  const [currentTopic, setCurrentTopic] = useState(null);
+  const [apiPosts, setApiPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Mantener compatibilidad con localStorage para otras funciones
   const [topics, setTopics] = useState(() => {
     return safeStorageGet(TOPICS_KEY, []);
   });
@@ -112,6 +120,58 @@ const TopicSection = ({ onNotify, user }) => {
     };
   }, []); // No incluir topics para evitar loops
 
+  // Cargar topic específico desde la API
+  useEffect(() => {
+    const loadTopic = async () => {
+      if (!currentTopicId) {
+        setError('No se especificó un topic');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        console.log('🔄 Loading topic from API:', currentTopicId);
+        const topic = await TopicsAPI.getById(currentTopicId);
+        console.log('✅ Topic loaded successfully:', topic);
+        setCurrentTopic(topic);
+
+        // Cargar posts con respuestas usando el nuevo endpoint
+        const postsWithReplies = await PostsAPI.getAllWithReplies({ topic_id: currentTopicId });
+        console.log('📝 Posts with replies loaded:', postsWithReplies);
+        setApiPosts(postsWithReplies || []);
+
+      } catch (error) {
+        console.error('❌ Error loading topic:', error);
+        setError(error.message || 'Topic no encontrado');
+        
+        if (error.response?.status === 404) {
+          if (onNotify) {
+            onNotify({
+              type: 'error',
+              title: 'Topic no encontrado',
+              message: 'El topic que buscas no existe o ha sido eliminado.'
+            });
+          }
+        } else {
+          if (onNotify) {
+            onNotify({
+              type: 'error',
+              title: 'Error',
+              message: 'No se pudo cargar el topic. Verifica tu conexión.'
+            });
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTopic();
+  }, [currentTopicId]); // Solo depender del topicId
+
   // Función para sincronizar postsMap con localStorage
   const syncPostsMapFromStorage = useCallback(() => {
     try {
@@ -130,10 +190,104 @@ const TopicSection = ({ onNotify, user }) => {
   }, [postsMap]);
 
   // Función para forzar actualización
-  const forceUpdate = useCallback(() => {
-    syncPostsMapFromStorage();
+  // Función para recargar datos completos
+  const reloadTopicData = useCallback(async () => {
+    if (!currentTopicId) return;
+
+    try {
+      console.log('🔄 Reloading topic data from API:', currentTopicId);
+      
+      const [topic, postsWithReplies] = await Promise.all([
+        TopicsAPI.getById(currentTopicId),
+        PostsAPI.getAllWithReplies({ topic_id: currentTopicId })
+      ]);
+      
+      console.log('✅ Topic and posts reloaded successfully');
+      setCurrentTopic(topic);
+      setApiPosts(postsWithReplies || []);
+      
+      // También actualizar el post activo en el modal si está abierto
+      if (activeThreadPost) {
+        const updatedPost = postsWithReplies.find(p => p.id === activeThreadPost.id);
+        if (updatedPost) {
+          setActiveThreadPost(updatedPost);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error reloading topic data:', error);
+    }
+  }, [currentTopicId, activeThreadPost]);
+
+  // Función para votar en topics
+  const handleTopicVote = useCallback(async (voteType) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) {
+        onNotify({
+          type: 'warning',
+          title: 'Acceso requerido',
+          message: 'Debes iniciar sesión para votar'
+        });
+      }
+      return;
+    }
+
+    if (!currentTopicId || !currentTopic) {
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No hay topic seleccionado'
+        });
+      }
+      return;
+    }
+
+    try {
+      console.log('🗳️ Voting on topic:', { topicId: currentTopicId, voteType, userId: currentUser.id });
+      
+      // Datos a enviar (asegurándonos de que sean del tipo correcto)
+      const voteData = {
+        user_id: parseInt(currentUser.id),
+        vote_type: String(voteType)
+      };
+      
+      console.log('📤 Sending vote data:', voteData);
+      console.log('📤 Vote data stringified:', JSON.stringify(voteData));
+      
+      // Enviar voto usando la API
+      const result = await TopicsAPI.vote(currentTopicId, voteData);
+      console.log('✅ Vote submitted successfully:', result);
+
+      // Recargar el topic para mostrar los votos actualizados
+      await reloadTopicData();
+
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Voto registrado',
+          message: `Has ${voteType === 'up' ? 'upvoteado' : 'downvoteado'} este topic`
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error voting on topic:', error);
+      console.error('❌ Full error:', error.response?.data || error.message);
+      console.error('❌ Error status:', error.response?.status);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo registrar el voto. Inténtalo de nuevo.'
+        });
+      }
+    }
+  }, [currentTopicId, currentTopic, reloadTopicData, onNotify]);
+
+  const forceUpdate = useCallback(async () => {
+    await reloadTopicData();
     setUpdateTrigger(prev => prev + 1);
-  }, [syncPostsMapFromStorage]);
+  }, [reloadTopicData]);
 
   // Actualizar activeThreadPost cuando postsMap cambie
   useEffect(() => {
@@ -146,44 +300,28 @@ const TopicSection = ({ onNotify, user }) => {
     }
   }, [postsMap, currentTopicId, activeThreadPost]);
 
-  const topic = useMemo(() => {
-    if (!currentTopicId) return null;
-    return topics.find(t => t.id === currentTopicId);
-  }, [topics, currentTopicId]);
-
   // Función para eliminar el topic actual - debe estar antes de los useEffect
   const handleDeleteTopic = useCallback(async () => {
-    if (!currentTopicId || !topic) {
+    if (!currentTopicId || !currentTopic) {
       throw new Error('No hay topic para eliminar');
     }
 
     try {
-      // Actualizar localStorage directamente de forma síncrona
+      console.log('🗑️ Deleting topic via API:', currentTopicId);
       
-      // 1. Eliminar topic de la lista de topics
-      const currentTopics = JSON.parse(localStorage.getItem(TOPICS_KEY) || '[]');
-      const filteredTopics = currentTopics.filter(t => t.id !== currentTopicId);
-      localStorage.setItem(TOPICS_KEY, JSON.stringify(filteredTopics));
+      // Eliminar topic usando la API
+      await TopicsAPI.delete(currentTopicId);
+      console.log('✅ Topic deleted successfully');
 
-      // 2. Eliminar todos los posts asociados
-      const currentPostsMap = JSON.parse(localStorage.getItem(POSTS_KEY) || '{}');
-      const newPostsMap = { ...currentPostsMap };
-      delete newPostsMap[currentTopicId];
-      localStorage.setItem(POSTS_KEY, JSON.stringify(newPostsMap));
-
-      // 3. Actualizar el estado local para reflejar los cambios inmediatamente
-      setTopics(filteredTopics);
-      setPostsMap(newPostsMap);
-
-      // 4. Redirigir a foros después de eliminar
+      // Redirigir a foros después de eliminar
       navigate('/forums');
 
       return 'Topic eliminado exitosamente';
     } catch (error) {
-      console.error('Error eliminando topic:', error);
+      console.error('❌ Error deleting topic:', error);
       throw new Error(`No se pudo eliminar el topic: ${error.message}`);
     }
-  }, [currentTopicId, topic, navigate]);
+  }, [currentTopicId, currentTopic, navigate]);
 
   useEffect(() => {
     try { localStorage.setItem(TOPICS_KEY, JSON.stringify(topics)); } catch { /* ignore */ }
@@ -244,29 +382,20 @@ const TopicSection = ({ onNotify, user }) => {
       }
     })();
     
-    // Usar el estado actual de postsMap en lugar de localStorage
-    const currentPosts = postsMap[currentTopicId] || [];
+    // Usar apiPosts (datos de la API) en lugar de postsMap (localStorage)
+    if (!Array.isArray(apiPosts)) return [];
     
-    if (!Array.isArray(currentPosts)) return [];
-    
-    // Filtrar posts principales y sus respuestas usando la misma lógica que getVisiblePosts
-    return currentPosts.filter(post => {
+    // Filtrar posts de la API si es necesario (por usuarios bloqueados, etc.)
+    return apiPosts.filter(post => {
       // Si el post es de usuario bloqueado, ocultarlo (excepto para admins)
-      if (post.author && isUserBlocked(post.author) && (!currentUser || !isAdmin(currentUser))) {
+      if (post.author_username && isUserBlocked(post.author_username) && (!currentUser || !isAdmin(currentUser))) {
         return false;
-      }
-      
-      // Filtrar respuestas de usuarios bloqueados
-      if (post.replies && Array.isArray(post.replies)) {
-        post.replies = post.replies.filter(reply => {
-          return !reply.author || !isUserBlocked(reply.author) || (currentUser && isAdmin(currentUser));
-        });
       }
       
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTopicId, user, postsMap, updateTrigger]); // updateTrigger usado intencionalmente para forzar actualizaciones
+  }, [currentTopicId, user, apiPosts]); // Usar apiPosts en lugar de postsMap
 
   // Validación de props críticas después de todos los hooks
   if (!currentTopicId) {
@@ -358,7 +487,7 @@ const TopicSection = ({ onNotify, user }) => {
     }
 
     // No se puede reportar a uno mismo
-    if (currentUser.username === post.author) {
+    if (currentUser.username === post.author_username) {
       safeNotify({
         type: 'warning',
         title: 'Acción no permitida',
@@ -378,16 +507,21 @@ const TopicSection = ({ onNotify, user }) => {
     }
 
     setReportTarget({
-      username: post.author,
+      username: post.author_username,
       postId: post.id,
       topicId: currentTopicId
     });
     setShowReportModal(true);
   };
 
-  const handleCreateTopic = ({ title, description, message }) => {
+  const handleCreateTopic = async ({ title, description, message }) => {
     console.log('🔧 Creating topic:', { title, description, message });
     const currentUser = getCurrentUser();
+    
+    if (!currentUser) {
+      if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'Debes iniciar sesión para crear un topic.' });
+      return;
+    }
     
     // Verificar si el usuario está bloqueado
     if (currentUser && isUserBlocked(currentUser.username)) {
@@ -409,73 +543,63 @@ const TopicSection = ({ onNotify, user }) => {
       return;
     }
     
-    const id = 't' + (Date.now().toString(36).slice(-6));
-    const newTopic = { 
-      id, 
-      title, 
-      description, 
-      author: user?.username || 'Anon', 
-      createdAt: Date.now(),
-      category: 'General',
-      upvotes: 0
-    };
-
-    const newPost = {
-      id: 'p' + Date.now().toString(36), 
-      author: user?.username || 'Anon',
-      authorAvatar: (user?.username || 'A')[0].toUpperCase(),
-      title: 'Primer post',
-      message, 
-      createdAt: Date.now(), 
-      replies: [] 
-    };
-
-    console.log('📝 New topic created:', newTopic);
-    console.log('📝 New post created:', newPost);
-
-    // Actualizar estado local
-    setTopics(t => {
-      const updated = [newTopic, ...t];
-      console.log('📂 Topics updated:', updated);
-      return updated;
-    });
-    setPostsMap(m => {
-      const updated = { ...m, [id]: [newPost] };
-      console.log('📂 PostsMap updated:', updated);
-      return updated;
-    });
-
-    // Persistir inmediatamente en localStorage
     try {
-      const currentTopics = safeStorageGet(TOPICS_KEY, []);
-      const updatedTopics = [newTopic, ...currentTopics];
-      safeStorageSet(TOPICS_KEY, updatedTopics);
+      // Crear topic usando la API
+      const topicData = {
+        title: title.trim(),
+        description: description.trim(),
+        author_id: currentUser.id,
+        category_id: 1 // Por defecto "General"
+      };
 
-      const currentPostsMap = safeStorageGet(POSTS_KEY, {});
-      const updatedPostsMap = { ...currentPostsMap, [id]: [newPost] };
-      safeStorageSet(POSTS_KEY, updatedPostsMap);
+      console.log('🔄 Creating topic via API:', topicData);
+      const newTopic = await TopicsAPI.create(topicData);
+      console.log('✅ Topic created successfully:', newTopic);
 
-      // Verificar que se guardó correctamente
-      console.log('� Verification after save:');
-      debugStorage();
+      // Crear post inicial en el topic si hay mensaje
+      if (message && message.trim()) {
+        const postData = {
+          topic_id: newTopic.id,
+          title: 'Post inicial',
+          content: message.trim(),
+          author_id: currentUser.id
+        };
+
+        console.log('🔄 Creating initial post via API:', postData);
+        const newPost = await PostsAPI.create(postData);
+        console.log('✅ Initial post created successfully:', newPost);
+      }
+
+      setShowCreateModal(false);
+      if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
+      
+      console.log('🔄 Navigating to topic:', `topic:${newTopic.id}`);
+      navigate(`/topic/${newTopic.id}`);
+
     } catch (error) {
-      console.error('❌ Error saving topic to localStorage:', error);
+      console.error('❌ Error creating topic:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo crear el topic. Inténtalo de nuevo.'
+        });
+      }
     }
-
-    setShowCreateModal(false);
-    if (onNotify) onNotify({ type: 'success', title: 'Topic creado', message: title });
-    
-    console.log('🔄 Navigating to topic:', `topic:${id}`);
-    navigate(`/topic/${id}`);
   };
 
-  const handleReplySubmit = ({ message }) => {
+  const handleReplySubmit = async ({ message }) => {
     if (!currentTopicId) {
       if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'No hay topic seleccionado.' });
       return;
     }
 
     const currentUser = getCurrentUser();
+    
+    if (!currentUser) {
+      if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'Debes iniciar sesión para responder.' });
+      return;
+    }
     
     // Verificar si el usuario está bloqueado
     if (currentUser && isUserBlocked(currentUser.username)) {
@@ -497,91 +621,111 @@ const TopicSection = ({ onNotify, user }) => {
       return;
     }
 
-    const newReply = { 
-      id: 'r' + Date.now().toString(36), 
-      author: user?.username || 'Anon',
-      authorAvatar: (user?.username || 'A')[0].toUpperCase(),
-      message, 
-      createdAt: Date.now() 
-    };
-
-    setPostsMap(prev => {
-      const copy = { ...prev };
+    try {
       if (replyTo) {
-        copy[currentTopicId] = (copy[currentTopicId] || []).map(p => {
-          if (p.id === replyTo) {
-            return { ...p, replies: [...(p.replies || []), newReply] };
-          }
-          return p;
-        });
-      } else {
-        const newPost = { 
-          id: 'p' + Date.now().toString(36), 
-          author: user?.username || 'Anon',
-          authorAvatar: (user?.username || 'A')[0].toUpperCase(),
-          title: '',
-          message, 
-          createdAt: Date.now(), 
-          replies: [] 
+        // Crear respuesta usando el endpoint específico
+        const replyData = {
+          author_id: currentUser.id,
+          content: message.trim(),
+          title: `Re: ${currentTopic?.title || 'Respuesta'}`
         };
-        copy[currentTopicId] = [newPost, ...(copy[currentTopicId] || [])];
-      }
-      
-      // Actualizar localStorage inmediatamente para sincronización
-      try {
-        localStorage.setItem(POSTS_KEY, JSON.stringify(copy));
-      } catch (error) {
-        console.warn('Error saving to localStorage:', error);
-      }
-      
-      return copy;
-    });
 
-    if (showThreadModal && replyTo && activeThreadPost && activeThreadPost.id === replyTo) {
-      setActiveThreadPost(prev => {
-        if (!prev) return prev;
-        return { ...prev, replies: [...(prev.replies || []), newReply] };
-      });
+        console.log('🔄 Creating reply via API:', replyData);
+        const newReply = await PostsAPI.createReply(replyTo, replyData);
+        console.log('✅ Reply created successfully:', newReply);
+        
+        // Recargar datos completos automáticamente
+        await reloadTopicData();
+      } else {
+        // Crear post nuevo (respuesta rápida)
+        const postData = {
+          topic_id: parseInt(currentTopicId),
+          title: 'Respuesta rápida',
+          content: message.trim(),
+          author_id: currentUser.id
+        };
+
+        console.log('🔄 Creating quick post via API:', postData);
+        const newPost = await PostsAPI.create(postData);
+        console.log('✅ Quick post created successfully:', newPost);
+        
+        // Recargar datos completos automáticamente
+        await reloadTopicData();
+      }
+
+      setShowReplyModal(false);
+      setReplyTo(null);
+      
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Respuesta enviada',
+          message: 'Tu respuesta se ha enviado exitosamente'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating reply:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo enviar la respuesta. Inténtalo de nuevo.'
+        });
+      }
     }
-
-    setShowReplyModal(false);
-    
-    // Forzar actualización de la vista
-    forceUpdate();
-    
-    if (onNotify) onNotify({ type: 'info', title: 'Publicación creada', message: 'Tu publicación fue añadida.' });
   };
 
-  const handleNewPostSubmit = ({ title, description, message }) => {
+  const handleNewPostSubmit = async ({ title, description, message }) => {
     if (!currentTopicId) {
       if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'No hay topic seleccionado.' });
       setShowNewPostModal(false);
       return;
     }
-    setPostsMap(prev => {
-      const copy = { ...prev };
-      const newPost = {
-        id: 'p' + Date.now().toString(36),
-        author: user?.username || 'Anon',
-        authorAvatar: (user?.username || 'A')[0].toUpperCase(),
-        title,
-        description,
-        message,
-        createdAt: Date.now(),
-        replies: []
+
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      if (onNotify) onNotify({ type: 'error', title: 'Error', message: 'Debes iniciar sesión para crear un post.' });
+      setShowNewPostModal(false);
+      return;
+    }
+
+    try {
+      // Crear post usando la API
+      const postData = {
+        topic_id: parseInt(currentTopicId),
+        title: title.trim(),
+        content: message.trim(),
+        author_id: currentUser.id
       };
-      copy[currentTopicId] = [newPost, ...(copy[currentTopicId] || [])];
+
+      console.log('🔄 Creating post via API:', postData);
+      const newPost = await PostsAPI.create(postData);
+      console.log('✅ Post created successfully:', newPost);
+
+      // Recargar datos completos automáticamente
+      await reloadTopicData();
+
+      setShowNewPostModal(false);
       
-      // Actualizar localStorage inmediatamente para sincronización
-      try {
-        localStorage.setItem(POSTS_KEY, JSON.stringify(copy));
-      } catch (error) {
-        console.warn('Error saving to localStorage:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Post creado',
+          message: 'Tu post se ha creado exitosamente'
+        });
       }
-      
-      return copy;
-    });
-    setShowNewPostModal(false);
+
+    } catch (error) {
+      console.error('❌ Error creating post:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo crear el post. Inténtalo de nuevo.'
+        });
+      }
+    }
     
     // Forzar actualización de la vista
     forceUpdate();
@@ -678,7 +822,7 @@ const TopicSection = ({ onNotify, user }) => {
   // Vista dentro de un topic (mejorada)
 
   // Verificar si el topic existe
-  if (!topic && currentTopicId) {
+  if (!currentTopic && currentTopicId) {
     return (
       <section className="topic-section">
         <div className="container">
@@ -712,6 +856,56 @@ const TopicSection = ({ onNotify, user }) => {
     );
   }
 
+  // Estados de loading y error
+  if (loading) {
+    return (
+      <section className="topic-section">
+        <div className="container">
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+            <p className="mt-2 text-muted">Cargando topic...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="topic-section">
+        <div className="container">
+          <div className="alert alert-danger text-center">
+            <i className="fas fa-exclamation-triangle me-2"></i>
+            {error}
+            <br />
+            <button className="btn btn-primary mt-2" onClick={() => navigate('/forums')}>
+              Volver a los foros
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!loading && !error && !currentTopic) {
+    return (
+      <section className="topic-section">
+        <div className="container">
+          <div className="alert alert-warning text-center">
+            <i className="fas fa-search me-2"></i>
+            Topic no encontrado
+            <br />
+            <button className="btn btn-primary mt-2" onClick={() => navigate('/forums')}>
+              Volver a los foros
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="topic-section">
       <div className="container">
@@ -727,19 +921,33 @@ const TopicSection = ({ onNotify, user }) => {
                 <i className="fas fa-arrow-left"></i>
               </button>
               <div className="topic-info">
-                <span className="topic-category">{topic?.category || 'General'}</span>
-                <h2 className="topic-title">{topic?.title || 'Tema'}</h2>
-                <p className="topic-description">{topic?.description || 'Descripción no disponible.'}</p>
+                <span className="topic-category">{currentTopic?.category || 'General'}</span>
+                <h2 className="topic-title">{currentTopic?.title || 'Tema'}</h2>
+                <p className="topic-description">{currentTopic?.description || 'Descripción no disponible.'}</p>
                 <div className="topic-meta">
                   <span className="topic-author">
-                    <span className="author-avatar">{(topic?.author || 'A')[0]}</span>
-                    u/{topic?.author || 'Anon'}
+                    <span className="author-avatar">{(currentTopic?.author_username || 'A')[0]}</span>
+                    u/{currentTopic?.author_username || 'Anon'}
                   </span>
+                  <div className="topic-voting">
+                    <button 
+                      className="vote-btn upvote-btn"
+                      onClick={() => handleTopicVote('up')}
+                      title="Upvote este topic"
+                    >
+                      <i className="fas fa-arrow-up"></i>
+                    </button>
+                    <span className="vote-count">{(currentTopic?.upvotes || 0) - (currentTopic?.downvotes || 0)}</span>
+                    <button 
+                      className="vote-btn downvote-btn"
+                      onClick={() => handleTopicVote('down')}
+                      title="Downvote este topic"
+                    >
+                      <i className="fas fa-arrow-down"></i>
+                    </button>
+                  </div>
                   <span className="topic-stats">
-                    <i className="fas fa-fire"></i> {topic?.upvotes || 0} upvotes
-                  </span>
-                  <span className="topic-stats">
-                    <i className="fas fa-comment"></i> {posts.length} posts
+                    <i className="fas fa-comment"></i> {apiPosts.length} posts
                   </span>
                 </div>
               </div>
@@ -751,13 +959,13 @@ const TopicSection = ({ onNotify, user }) => {
               <button 
                 className="btn btn-outline-secondary"
                 onClick={async () => {
-                  console.log('🔗 Sharing topic:', topic);
+                  console.log('🔗 Sharing topic:', currentTopic);
                   console.log('🔗 Current topic ID:', currentTopicId);
                   try {
-                    if (!topic || !topic.id) {
+                    if (!currentTopic || !currentTopic.id) {
                       throw new Error('Topic no encontrado o sin ID');
                     }
-                    await shareTopicUrl(topic, onNotify);
+                    await shareTopicUrl(currentTopic, onNotify);
                   } catch (err) {
                     console.error('Error sharing topic:', err);
                     onNotify && onNotify({ type: 'error', title: 'Error', message: 'No se pudo compartir: ' + err.message });
@@ -770,7 +978,7 @@ const TopicSection = ({ onNotify, user }) => {
               {/* Botón de eliminar topic - visible para el autor o administradores */}
               {(() => {
                 const currentUser = getCurrentUser();
-                const isAuthor = currentUser && topic && topic.author === currentUser.username;
+                const isAuthor = currentUser && currentTopic && currentTopic.author_username === currentUser.username;
                 const isUserAdmin = currentUser && currentUser.role === 'admin';
                 
                 if (isAuthor || isUserAdmin) {
@@ -807,17 +1015,17 @@ const TopicSection = ({ onNotify, user }) => {
               <div key={post.id} className="post-card card-custom" onClick={() => openThread(post)}>
                 <div className="post-header">
                   <div className="post-author-info">
-                    <span className="author-avatar">{post.authorAvatar || post.author[0]}</span>
+                    <span className="author-avatar">{post.authorAvatar || post.author_username?.[0]?.toUpperCase() || 'U'}</span>
                     <div className="author-details">
-                      <span className="author-name">u/{post.author}</span>
-                      <span className="post-time">{timeAgo(post.createdAt)}</span>
+                      <span className="author-name">u/{post.author_username}</span>
+                      <span className="post-time">{timeAgo(new Date(post.created_at).getTime())}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="post-content">
                   {post.title && <h3 className="post-title">{post.title}</h3>}
-                  <p className="post-message">{post.message}</p>
+                  <p className="post-message">{post.content}</p>
                 </div>
 
                 <div className="post-footer">
@@ -845,7 +1053,7 @@ const TopicSection = ({ onNotify, user }) => {
                     </button>
                     {(() => {
                       const currentUser = getCurrentUser();
-                      const canReport = currentUser && currentUser.username !== post.author;
+                      const canReport = currentUser && currentUser.username !== post.author_username;
                       
                       if (canReport) {
                         return (
@@ -855,7 +1063,7 @@ const TopicSection = ({ onNotify, user }) => {
                               e.stopPropagation();
                               openReport(post);
                             }}
-                            title={`Reportar a ${post.author}`}
+                            title={`Reportar a ${post.author_username}`}
                           >
                             <i className="fas fa-flag"></i> Reportar
                           </button>
@@ -909,6 +1117,7 @@ const TopicSection = ({ onNotify, user }) => {
         }}
         post={activeThreadPost}
         onReplyAdded={forceUpdate}
+        onPostUpdated={reloadTopicData} // Recargar datos cuando se actualicen likes/dislikes
         onNotify={onNotify}
       />
       
@@ -917,7 +1126,7 @@ const TopicSection = ({ onNotify, user }) => {
         show={showDeleteModal} 
         onClose={() => setShowDeleteModal(false)} 
         onDeleteTopic={handleDeleteTopic} 
-        topicTitle={topic?.title || 'Topic'}
+        topicTitle={currentTopic?.title || 'Topic'}
         onNotify={onNotify} 
       />
       

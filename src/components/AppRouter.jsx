@@ -31,7 +31,8 @@ const AppRouter = ({
   setNotifications,
   handleLogout,
   setShowLoginModal,
-  setShowRegisterModal
+  setShowRegisterModal,
+  handleUpdateUser
 }) => {
   // Función para navegar programáticamente
   const handleNavigate = (section, topicId = null) => {
@@ -81,13 +82,25 @@ const AppRouter = ({
             {/* Ruta principal - Hero accesible para todos */}
             <Route 
               path="/" 
-              element={<Hero />} 
+              element={
+                <Hero 
+                  onRegister={() => setShowRegisterModal(true)}
+                  onNavigate={handleNavigate}
+                  isAuthenticated={!!user}
+                />
+              } 
             />
             
             {/* Ruta específica para Hero - misma funcionalidad que / */}
             <Route 
               path="/hero" 
-              element={<Hero />} 
+              element={
+                <Hero 
+                  onRegister={() => setShowRegisterModal(true)}
+                  onNavigate={handleNavigate}
+                  isAuthenticated={!!user}
+                />
+              } 
             />
             
             {/* Ruta de Foros */}
@@ -111,6 +124,7 @@ const AppRouter = ({
                     user={user}
                     onNavigate={handleNavigate}
                     onNotify={handleNotify}
+                    onUpdateUser={handleUpdateUser}
                   />
                 </ProtectedRoute>
               } 

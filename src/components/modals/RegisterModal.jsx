@@ -93,11 +93,22 @@ const RegisterModal = ({ show, onClose, onRegister, onNotify }) => {
       return;
     }
 
-    // Add delay for better UX feedback
-    setTimeout(() => {
-      onRegister({ username: username.trim(), email: email.trim(), password });
+    try {
+      // Add delay for better UX feedback
+      setTimeout(async () => {
+        try {
+          await onRegister({ username: username.trim(), email: email.trim(), password });
+          // El modal se cierra automáticamente desde handleRegister en App.jsx
+          setIsSubmitting(false);
+        } catch (regError) {
+          console.error('Registration failed:', regError);
+          setIsSubmitting(false);
+        }
+      }, 1200);
+    } catch (error) {
+      console.error('Registration error:', error);
       setIsSubmitting(false);
-    }, 1200);
+    }
   };
 
   if (!show && !isAnimating) return null;

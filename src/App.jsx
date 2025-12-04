@@ -4,105 +4,11 @@ import LoginModal from './components/modals/LoginModal';
 import RegisterModal from './components/modals/RegisterModal';
 import { isUserBlocked } from './utils/roleUtils';
 import { 
-  registerUser,
-  verifyUserCredentials,
   getAuthSession,
   saveAuthSession,
   clearAuthSession
 } from './utils/storage';
-
-// ===== MOCK AUTH SERVICE (preparado para API real) =====
-const AuthService = {
-  // Simula llamada a API de login
-  login: async (credentials) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const { username, password } = credentials;
-        
-        // Caso especial: admin (no necesita estar registrado)
-        if (username.toLowerCase() === 'admin' && password === 'admin') {
-          resolve({
-            success: true,
-            user: {
-              id: 'user_1',
-              username: 'admin',
-              email: 'admin@strikeforo.com',
-              role: 'admin',
-              avatar: null,
-              createdAt: new Date().toISOString(),
-            },
-            token: 'mock_jwt_token_admin_' + Date.now()
-          });
-          return;
-        }
-        
-        // Usar función centralizada para verificar credenciales
-        const userResult = verifyUserCredentials(username, password);
-        
-        if (!userResult.success) {
-          reject({ message: userResult.message });
-          return;
-        }
-        
-        // Login exitoso para usuario registrado
-        resolve({
-          success: true,
-          user: userResult.user,
-          token: 'mock_jwt_token_' + Date.now()
-        });
-      }, 800); // Simula latencia de red
-    });
-  },
-
-  // Simula llamada a API de registro
-  register: async (userData) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Usar función centralizada de storage
-        const result = registerUser(userData);
-        
-        if (result.success) {
-          resolve({
-            success: true,
-            user: result.user,
-            token: 'mock_jwt_token_' + Date.now()
-          });
-        } else {
-          reject({ message: result.error });
-        }
-      }, 1000);
-    });
-  },
-
-  // Simula verificación de token
-  verifyToken: async (token) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (token && token.includes('mock_jwt_token')) {
-          resolve({ 
-            success: true, 
-            user: { 
-              id: 'user_1', 
-              username: 'validated_user',
-              role: 'user'
-            } 
-          });
-        } else {
-          resolve({ success: false });
-        }
-      }, 500);
-    });
-  },
-
-  // Simula logout
-  logout: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true });
-      }, 300);
-    });
-  }
-};
+import { AuthAPI, testConnection } from './services/api';
 
 // ===== MAIN APP COMPONENT =====
 function App() {
@@ -148,10 +54,10 @@ function App() {
   // ===== AUTHENTICATION HANDLERS =====
   const handleLogin = useCallback(async (credentials) => {
     try {
-      const response = await AuthService.login(credentials);
+      const response = await AuthAPI.login(credentials);
       
       if (response.success) {
-        // Verificar si el usuario no está bloqueado
+        // Verificar si el usuario no está bloqueado (verificación adicional local)
         if (isUserBlocked(response.user.username)) {
           throw new Error('Tu cuenta ha sido bloqueada. Contacta al administrador.');
         }
@@ -180,11 +86,20 @@ function App() {
     } catch (error) {
       console.error('Login error:', error);
       
+      // Determinar el mensaje de error apropiado
+      let errorMessage = 'No se pudo iniciar sesión. Verifica tus credenciales.';
+      
+      if (error.message.includes('blocked') || error.message.includes('bloqueada')) {
+        errorMessage = 'Tu cuenta ha sido bloqueada. Contacta al administrador para más información.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       // Mostrar notificación de error de login
       addNotification({
         type: 'error',
         title: 'Error de inicio de sesión',
-        message: error.message || 'No se pudo iniciar sesión. Verifica tus credenciales.'
+        message: errorMessage
       });
       
       throw error;
@@ -193,7 +108,7 @@ function App() {
 
   const handleRegister = useCallback(async (userData) => {
     try {
-      const response = await AuthService.register(userData);
+      const response = await AuthAPI.register(userData);
       
       if (response.success) {
         setUser(response.user);
@@ -226,7 +141,7 @@ function App() {
   const handleLogout = useCallback(async () => {
     try {
       const currentUsername = user?.username;
-      await AuthService.logout();
+      await AuthAPI.logout();
       setUser(null);
       clearAuthSession();
       
@@ -248,18 +163,47 @@ function App() {
     }
   }, [user, addNotification]);
 
+  const handleUpdateUser = useCallback((updatedData) => {
+    // Actualizar el usuario en el estado
+    const updatedUser = {
+      ...user,
+      ...updatedData
+    };
+    setUser(updatedUser);
+    
+    // Actualizar la sesión en localStorage
+    const currentSession = getAuthSession();
+    if (currentSession) {
+      const updatedSession = {
+        ...currentSession,
+        user: updatedUser
+      };
+      saveAuthSession(updatedSession);
+    }
+  }, [user]);
+
   // ===== INITIALIZATION =====
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        // Primero verificar conexión con el backend
+        const isConnected = await testConnection();
+        if (!isConnected) {
+          addNotification({
+            type: 'warning',
+            title: 'Servidor no disponible',
+            message: 'No se puede conectar al servidor. Asegúrate de que el backend esté ejecutándo'
+          });
+        }
+
         const auth = getAuthSession();
         
         if (auth && auth.user) {
           // Verificar si la sesión no ha expirado
           const expiry = new Date(auth.expiresAt);
           if (expiry > new Date()) {
-            // Verificar token con el servidor (simulado)
-            const result = await AuthService.verifyToken(auth.token);
+            // Verificar token con el servidor
+            const result = await AuthAPI.verifyToken(auth.token);
             if (result.success) {
               setUser(auth.user);
             } else {
@@ -274,7 +218,7 @@ function App() {
         clearAuthSession();
         
         // Mostrar notificación de error de inicialización solo si es un error significativo
-        if (error.message && !error.message.includes('token')) {
+        if (error.message && !error.message.includes('token') && !error.message.includes('servidor')) {
           addNotification({
             type: 'warning',
             title: 'Sesión expirada',
@@ -328,6 +272,7 @@ function App() {
         handleLogin={handleLogin}
         handleRegister={handleRegister}
         handleLogout={handleLogout}
+        handleUpdateUser={handleUpdateUser}
       />
       {/* Modales de autenticación */}
       {showLoginModal && (

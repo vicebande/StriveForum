@@ -1,59 +1,53 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { getDashboardData } from '../services/api';
 
-// Función para obtener actividades recientes del foro
-const getRecentForumActivity = () => {
-  const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-  const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-  
-  const activities = [];
-  
-  // Obtener últimos topics creados
-  const recentTopics = topics
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 3);
-  
-  recentTopics.forEach(topic => {
-    activities.push({
-      id: `topic-${topic.id}`,
-      type: 'topic',
-      title: topic.title,
-      meta: `por ${topic.author}`,
-      time: new Date(topic.createdAt).getTime(),
-      topicId: topic.id
-    });
-  });
-  
-  // Obtener últimas respuestas
-  const recentPosts = [];
-  Object.entries(postsMap).forEach(([topicId, posts]) => {
-    if (Array.isArray(posts)) {
-      posts.forEach(post => {
-        const topic = topics.find(t => t.id === parseInt(topicId));
-        if (topic) {
-          recentPosts.push({
-            id: `post-${post.id || Date.now()}-${topicId}`,
-            type: 'reply',
-            title: `Respuesta en "${topic.title}"`,
-            meta: `por ${post.author}`,
-            time: new Date(post.createdAt).getTime(),
-            topicId: parseInt(topicId)
-          });
-        }
+// Función para obtener actividades recientes del foro desde la API
+const getRecentForumActivityFromAPI = async () => {
+  try {
+    const dashboardData = await getDashboardData();
+    const activities = [];
+    
+    // Obtener últimos topics creados desde la API
+    const recentTopics = (dashboardData.recentTopics || [])
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 3);
+    
+    recentTopics.forEach(topic => {
+      activities.push({
+        id: `topic-${topic.id}`,
+        type: 'topic',
+        title: topic.title,
+        meta: `por ${topic.author_username}`,
+        time: new Date(topic.created_at).getTime(),
+        topicId: topic.id
       });
-    }
-  });
-  
-  // Agregar posts recientes
-  const sortedPosts = recentPosts
-    .sort((a, b) => b.time - a.time)
-    .slice(0, 4);
-  
-  activities.push(...sortedPosts);
-  
-  // Ordenar todas las actividades por fecha y tomar las más recientes
-  return activities
-    .sort((a, b) => b.time - a.time)
-    .slice(0, 5);
+    });
+    
+    // Obtener últimas respuestas desde la API
+    const recentPosts = (dashboardData.recentPosts || [])
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 4);
+    
+    recentPosts.forEach(post => {
+      activities.push({
+        id: `post-${post.id}`,
+        type: 'reply',
+        title: `Respuesta en tema`,
+        meta: `por ${post.author_username}`,
+        time: new Date(post.created_at).getTime(),
+        topicId: post.topic_id
+      });
+    });
+    
+    // Ordenar todas las actividades por fecha y tomar las más recientes
+    return activities
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 5);
+      
+  } catch (error) {
+    console.error('Error fetching recent activity from API:', error);
+    return [];
+  }
 };
 
 // Función para formatear tiempo relativo
@@ -74,12 +68,30 @@ const getTimeAgo = (timestamp) => {
   - items optional: array de eventos (si no, usa datos reales)
 */
 const RecentActivity = ({ onNavigate, items }) => {
-  // Usar datos reales si no se proporcionan items
-  const realActivity = useMemo(() => {
-    return getRecentForumActivity();
-  }, []);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const activities = items || realActivity;
+  // Cargar datos desde la API o usar los proporcionados
+  useEffect(() => {
+    const loadActivity = async () => {
+      try {
+        setLoading(true);
+        if (items) {
+          setActivities(items);
+        } else {
+          const apiActivity = await getRecentForumActivityFromAPI();
+          setActivities(apiActivity);
+        }
+      } catch (error) {
+        console.error('Error loading recent activity:', error);
+        setActivities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadActivity();
+  }, [items]);
 
   const handleClick = (ev, activity) => {
     ev.preventDefault();
@@ -98,7 +110,16 @@ const RecentActivity = ({ onNavigate, items }) => {
       </div>
 
       <ul className="activity-list" style={{listStyle:'none', padding:0, margin:0}}>
-        {activities.length > 0 ? (
+        {loading ? (
+          <li className="activity-item minimal">
+            <div className="activity-content text-center">
+              <i className="fas fa-spinner fa-spin"></i>
+              <div style={{marginTop: '0.5rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem'}}>
+                Cargando actividad...
+              </div>
+            </div>
+          </li>
+        ) : activities.length > 0 ? (
           activities.map(activity => (
             <li key={activity.id} className="activity-item minimal" onClick={(e)=>handleClick(e, activity)} role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') handleClick(e,activity); }}>
               <div className="activity-content">

@@ -1,16 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   isAdmin, 
-  getAllReports, 
-  getAllUsers, 
   blockUser, 
   unblockUser, 
-  getBlockedUsers,
   getUserActivityHistory,
   getUserTopicCount,
   getUserPostCount,
   getUserReports
 } from '../utils/roleUtils';
+import { UsersAPI, ReportsAPI, TopicsAPI, PostsAPI } from '../services/api';
 
 const AdminPanel = ({ user, onNotify }) => {
   const [activeTab, setActiveTab] = useState('reports');
@@ -23,90 +21,287 @@ const AdminPanel = ({ user, onNotify }) => {
   // const [sortBy, setSortBy] = useState('recent'); // TODO: Implement sorting functionality
   const [selectedUser, setSelectedUser] = useState(null);
   const [userActivity, setUserActivity] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const loadData = useCallback(() => {
-    const allReports = getAllReports();
-    const allUsers = getAllUsers();
-    const blocked = getBlockedUsers();
+  // Helper para verificar si un usuario está bloqueado (compatible con API y localStorage)
+  const isUserBlockedStatus = (user) => {
+    return user.is_blocked === 1 || user.is_blocked === true || user.isBlocked === true;
+  };
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     
-    setReports(allReports);
-    setUsers(allUsers);
-    setBlockedUsers(blocked);
+    try {
+      const [reportsData, usersData] = await Promise.all([
+        ReportsAPI.getAll(),
+        UsersAPI.getAll()
+      ]);
+      
+      setReports(reportsData);
+      setUsers(usersData);
+      
+      // Filtrar usuarios bloqueados - buscar tanto is_blocked (API) como isBlocked (localStorage)
+      const blocked = usersData.filter(user => user.is_blocked === 1 || user.is_blocked === true || user.isBlocked === true);
+      setBlockedUsers(blocked);
+    } catch (err) {
+      console.error('Error loading admin data:', err);
+      setError('Error al cargar los datos del panel de administración');
+      
+      // Fallback a localStorage si la API falla
+      try {
+        const { getAllReports, getAllUsers, getBlockedUsers } = await import('../utils/roleUtils');
+        const allReports = getAllReports();
+        const allUsers = getAllUsers();
+        const blocked = getBlockedUsers();
+        
+        setReports(allReports);
+        setUsers(allUsers);
+        setBlockedUsers(blocked);
+      } catch (fallbackErr) {
+        console.error('Fallback error:', fallbackErr);
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     if (user && isAdmin(user)) {
-      // Defer loadData to avoid calling setState synchronously in effect
-      Promise.resolve().then(() => {
-        loadData();
-      });
+      loadData();
     }
   }, [user, loadData]);
 
-  const handleBlockUser = (targetUsername, reason = 'Violación de las reglas del foro') => {
+  const handleBlockUser = async (targetUsername, reason = 'Violación de las reglas del foro') => {
     if (window.confirm('¿Estás seguro de que deseas bloquear a este usuario?')) {
-      const success = blockUser(targetUsername, user.username, reason);
-      if (success) {
-        loadData();
+      try {
+        // Buscar el usuario en la lista
+        const targetUser = users.find(u => u.username === targetUsername);
+        
+        if (!targetUser) {
+          throw new Error('Usuario no encontrado');
+        }
+
+        // Intentar bloquear en la API primero
+        try {
+          await UsersAPI.update(targetUser.id, {
+            username: targetUser.username,
+            email: targetUser.email,
+            role: targetUser.role,
+            is_blocked: 1
+          });
+
+          // Si tiene éxito, también actualizar en localStorage como respaldo
+          blockUser(targetUsername, user.username, reason);
+
+          await loadData(); // Recargar datos desde la API
+          
+          if (onNotify) {
+            onNotify({
+              type: 'success',
+              title: 'Usuario bloqueado',
+              message: `El usuario ${targetUsername} ha sido bloqueado exitosamente.`
+            });
+          }
+        } catch (apiError) {
+          console.warn('API block failed, using localStorage fallback:', apiError);
+          
+          // Fallback a localStorage si la API falla
+          const success = blockUser(targetUsername, user.username, reason);
+          if (success) {
+            await loadData();
+            if (onNotify) {
+              onNotify({
+                type: 'success',
+                title: 'Usuario bloqueado',
+                message: `El usuario ${targetUsername} ha sido bloqueado (modo offline).`
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error blocking user:', error);
         if (onNotify) {
           onNotify({
-            type: 'success',
-            title: 'Usuario bloqueado',
-            message: `El usuario ${targetUsername} ha sido bloqueado exitosamente.`
+            type: 'error',
+            title: 'Error',
+            message: 'No se pudo bloquear al usuario: ' + error.message
           });
         }
       }
     }
   };
 
-  const handleUnblockUser = (targetUsername) => {
+  const handleUnblockUser = async (targetUsername) => {
     if (window.confirm('¿Estás seguro de que deseas desbloquear a este usuario?')) {
-      const success = unblockUser(targetUsername);
-      if (success) {
-        loadData();
+      try {
+        // Buscar el usuario en la lista
+        const targetUser = users.find(u => u.username === targetUsername);
+        
+        if (!targetUser) {
+          throw new Error('Usuario no encontrado');
+        }
+
+        // Intentar desbloquear en la API primero
+        try {
+          await UsersAPI.update(targetUser.id, {
+            username: targetUser.username,
+            email: targetUser.email,
+            role: targetUser.role,
+            is_blocked: 0
+          });
+
+          // Si tiene éxito, también actualizar en localStorage como respaldo
+          unblockUser(targetUsername);
+
+          await loadData(); // Recargar datos desde la API
+          
+          if (onNotify) {
+            onNotify({
+              type: 'success',
+              title: 'Usuario desbloqueado',
+              message: `El usuario ${targetUsername} ha sido desbloqueado exitosamente.`
+            });
+          }
+        } catch (apiError) {
+          console.warn('API unblock failed, using localStorage fallback:', apiError);
+          
+          // Fallback a localStorage si la API falla
+          const success = unblockUser(targetUsername);
+          if (success) {
+            await loadData();
+            if (onNotify) {
+              onNotify({
+                type: 'success',
+                title: 'Usuario desbloqueado',
+                message: `El usuario ${targetUsername} ha sido desbloqueado (modo offline).`
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error unblocking user:', error);
         if (onNotify) {
           onNotify({
-            type: 'success',
-            title: 'Usuario desbloqueado',
-            message: `El usuario ${targetUsername} ha sido desbloqueado exitosamente.`
+            type: 'error',
+            title: 'Error',
+            message: 'No se pudo desbloquear al usuario: ' + error.message
           });
         }
       }
     }
   };
 
-  const handleViewUserDetails = (username) => {
+  const handleViewUserDetails = async (username) => {
     const targetUser = users.find(u => u.username === username);
     if (targetUser) {
-      const topicsCreated = getUserTopicCount(username);
-      const postsCreated = getUserPostCount(username);
-      const reportsReceived = getUserReports(username);
-      const activity = getUserActivityHistory(username);
+      setLoading(true);
+      
+      try {
+        // Obtener datos específicos del usuario desde la API
+        const [userTopics, userPosts, userReports] = await Promise.all([
+          TopicsAPI.getAll({ author: username }).catch(() => []),
+          PostsAPI.getAll({ author_id: targetUser.id }).catch(() => []),
+          ReportsAPI.getAll().then(allReports => 
+            allReports.filter(report => 
+              (report.reported_username || report.reportedUsername) === username
+            )
+          ).catch(() => [])
+        ]);
 
-      const enrichedUser = {
-        ...targetUser,
-        topicsCreated,
-        postsCreated,
-        reportsReceived
-      };
+        // Crear actividad combinada de topics y posts
+        const activity = [
+          ...userTopics.map(topic => ({
+            id: `topic-${topic.id}`,
+            type: 'topic_created',
+            title: topic.title,
+            content: topic.content,
+            timestamp: topic.created_at,
+            category: topic.category,
+            replies: topic.replies_count || 0
+          })),
+          ...userPosts.map(post => ({
+            id: `post-${post.id}`,
+            type: 'post_created',
+            title: post.content?.substring(0, 50) + '...',
+            content: post.content,
+            timestamp: post.created_at,
+            topicId: post.topic_id,
+            topicTitle: post.topic_title
+          })),
+          ...userReports.map(report => ({
+            id: `report-${report.id}`,
+            type: 'reported',
+            title: report.reporter_username || report.reporterUsername,
+            content: report.description,
+            timestamp: report.created_at || report.timestamp,
+            reason: report.reason
+          }))
+        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      setSelectedUser(enrichedUser);
-      setUserActivity(activity);
-      setActiveTab('userDetails');
+        const enrichedUser = {
+          ...targetUser,
+          topicsCreated: userTopics.length,
+          postsCreated: userPosts.length,
+          reportsReceived: userReports
+        };
+
+        setSelectedUser(enrichedUser);
+        setUserActivity(activity);
+        setActiveTab('userDetails');
+      } catch (error) {
+        console.error('Error loading user details:', error);
+        
+        // Fallback a localStorage
+        try {
+          const topicsCreated = getUserTopicCount(username);
+          const postsCreated = getUserPostCount(username);
+          const reportsReceived = getUserReports(username);
+          const activity = getUserActivityHistory(username);
+
+          const enrichedUser = {
+            ...targetUser,
+            topicsCreated,
+            postsCreated,
+            reportsReceived
+          };
+
+          setSelectedUser(enrichedUser);
+          setUserActivity(activity);
+          setActiveTab('userDetails');
+        } catch (fallbackError) {
+          console.error('Fallback error:', fallbackError);
+          if (onNotify) {
+            onNotify({
+              type: 'error',
+              title: 'Error',
+              message: 'No se pudieron cargar los detalles del usuario'
+            });
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   // Filtrar datos según búsqueda y filtros
-  const filteredReports = reports.filter(report => {
+  const filteredReports = (reports || []).filter(report => {
+    // Verificar que el reporte tenga las propiedades mínimas necesarias
+    if (!report || typeof report !== 'object') return false;
+    
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = report.reportedUsername.toLowerCase().includes(searchLower) ||
-                         report.reporterUsername.toLowerCase().includes(searchLower);
+    const reportedUsername = report.reported_username || report.reportedUsername || '';
+    const reporterUsername = report.reporter_username || report.reporterUsername || '';
+    const matchesSearch = reportedUsername.toLowerCase().includes(searchLower) ||
+                         reporterUsername.toLowerCase().includes(searchLower);
     const matchesFilter = filterType === 'all' || report.reason === filterType;
     
     // Filtro por fecha
     let matchesDate = true;
     if (dateFilter !== 'all') {
-      const reportDate = new Date(report.timestamp);
+      const reportDate = new Date(report.created_at || report.timestamp);
       const today = new Date();
       
       switch (dateFilter) {
@@ -131,13 +326,14 @@ const AdminPanel = ({ user, onNotify }) => {
     return matchesSearch && matchesFilter && matchesDate;
   });
 
-  const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = (users || []).filter(u => 
+    u && u.username && u.email &&
+    (u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const filteredBlockedUsers = blockedUsers.filter(u => 
-    u.username.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredBlockedUsers = (blockedUsers || []).filter(u => 
+    u && u.username && u.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!user || !isAdmin(user)) {
@@ -169,7 +365,13 @@ const AdminPanel = ({ user, onNotify }) => {
                   <i className="fas fa-exclamation-triangle"></i>
                 </div>
                 <div className="stat-info">
-                  <span className="stat-number">{reports.length}</span>
+                  <span className="stat-number">
+                    {loading ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      reports.length
+                    )}
+                  </span>
                   <span className="stat-label">Reportes Totales</span>
                 </div>
               </div>
@@ -178,7 +380,13 @@ const AdminPanel = ({ user, onNotify }) => {
                   <i className="fas fa-users"></i>
                 </div>
                 <div className="stat-info">
-                  <span className="stat-number">{users.length}</span>
+                  <span className="stat-number">
+                    {loading ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      users.length
+                    )}
+                  </span>
                   <span className="stat-label">Usuarios Registrados</span>
                 </div>
               </div>
@@ -187,7 +395,13 @@ const AdminPanel = ({ user, onNotify }) => {
                   <i className="fas fa-ban"></i>
                 </div>
                 <div className="stat-info">
-                  <span className="stat-number">{blockedUsers.length}</span>
+                  <span className="stat-number">
+                    {loading ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      blockedUsers.length
+                    )}
+                  </span>
                   <span className="stat-label">Usuarios Bloqueados</span>
                 </div>
               </div>
@@ -278,21 +492,39 @@ const AdminPanel = ({ user, onNotify }) => {
 
           {/* Content */}
           <div className="admin-content-modern">
+            {/* Loading State */}
+            {loading && (
+              <div className="loading-state">
+                <div className="loading-spinner">
+                  <i className="fas fa-spinner fa-spin"></i>
+                </div>
+                <p>Cargando datos del panel de administración...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="alert alert-danger" role="alert">
+                <i className="fas fa-exclamation-triangle"></i>
+                <span>{error}</span>
+              </div>
+            )}
+
             {/* Reports Tab */}
-            {activeTab === 'reports' && (
+            {!loading && activeTab === 'reports' && (
               <div className="content-grid">
                 {filteredReports.length > 0 ? (
                   filteredReports.map((report) => (
                     <div key={report.id} className="report-card-modern">
                       <div className="card-header">
                         <div className="report-info">
-                          <h4>{report.reportedUsername}</h4>
+                          <h4>{report.reported_username || report.reportedUsername}</h4>
                           <span className={`severity-badge severity-${report.reason}`}>
                             {report.reason}
                           </span>
                         </div>
                         <div className="report-date">
-                          {new Date(report.timestamp).toLocaleDateString()}
+                          {new Date(report.created_at || report.timestamp).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="card-body">
@@ -300,7 +532,7 @@ const AdminPanel = ({ user, onNotify }) => {
                           <i className="fas fa-user-circle"></i>
                           <div>
                             <span className="detail-label">Reportado por</span>
-                            <span className="detail-value">{report.reporterUsername}</span>
+                            <span className="detail-value">{report.reporter_username || report.reporterUsername}</span>
                           </div>
                         </div>
                         {report.description && (
@@ -316,14 +548,14 @@ const AdminPanel = ({ user, onNotify }) => {
                       <div className="card-footer">
                         <button 
                           className="action-btn view-user"
-                          onClick={() => handleViewUserDetails(report.reportedUsername)}
+                          onClick={async () => await handleViewUserDetails(report.reported_username || report.reportedUsername)}
                         >
                           <i className="fas fa-eye"></i>
                           <span>Ver Usuario</span>
                         </button>
                         <button 
                           className="action-btn block-user"
-                          onClick={() => handleBlockUser(report.reportedUsername, `Reportado por: ${report.reason}`)}
+                          onClick={async () => await handleBlockUser(report.reported_username || report.reportedUsername, `Reportado por: ${report.reason}`)}
                         >
                           <i className="fas fa-ban"></i>
                           <span>Bloquear</span>
@@ -342,7 +574,7 @@ const AdminPanel = ({ user, onNotify }) => {
             )}
 
             {/* Users Tab */}
-            {activeTab === 'users' && (
+            {!loading && activeTab === 'users' && (
               <div className="content-grid">
                 {filteredUsers.length > 0 ? (
                   filteredUsers.map((u) => (
@@ -361,8 +593,8 @@ const AdminPanel = ({ user, onNotify }) => {
                             </span>
                           </div>
                         </div>
-                        <div className={`status-indicator ${u.isBlocked ? 'blocked' : 'active'}`}>
-                          <i className={`fas ${u.isBlocked ? 'fa-ban' : 'fa-check-circle'}`}></i>
+                        <div className={`status-indicator ${isUserBlockedStatus(u) ? 'blocked' : 'active'}`}>
+                          <i className={`fas ${isUserBlockedStatus(u) ? 'fa-ban' : 'fa-check-circle'}`}></i>
                         </div>
                       </div>
                       
@@ -386,26 +618,26 @@ const AdminPanel = ({ user, onNotify }) => {
                       <div className="card-footer">
                         <button 
                           className="action-btn view-user"
-                          onClick={() => handleViewUserDetails(u.username)}
+                          onClick={async () => await handleViewUserDetails(u.username)}
                         >
                           <i className="fas fa-user-check"></i>
                           <span>Ver Detalles</span>
                         </button>
                         
-                        {u.role !== 'admin' && !u.isBlocked && (
+                        {u.role !== 'admin' && !isUserBlockedStatus(u) && (
                           <button 
                             className="action-btn block"
-                            onClick={() => handleBlockUser(u.username)}
+                            onClick={async () => await handleBlockUser(u.username)}
                           >
                             <i className="fas fa-ban"></i>
                             <span>Bloquear</span>
                           </button>
                         )}
                         
-                        {u.role !== 'admin' && u.isBlocked && (
+                        {u.role !== 'admin' && isUserBlockedStatus(u) && (
                           <button 
                             className="action-btn unblock"
-                            onClick={() => handleUnblockUser(u.username)}
+                            onClick={async () => await handleUnblockUser(u.username)}
                           >
                             <i className="fas fa-unlock"></i>
                             <span>Desbloquear</span>
@@ -425,7 +657,7 @@ const AdminPanel = ({ user, onNotify }) => {
             )}
 
             {/* Blocked Users Tab */}
-            {activeTab === 'blocked' && (
+            {!loading && activeTab === 'blocked' && (
               <div className="content-grid">
                 {filteredBlockedUsers.length > 0 ? (
                   filteredBlockedUsers.map((blockedUser) => (
@@ -467,7 +699,7 @@ const AdminPanel = ({ user, onNotify }) => {
                       <div className="card-footer">
                         <button 
                           className="action-btn view-user"
-                          onClick={() => handleViewUserDetails(blockedUser.username)}
+                          onClick={async () => await handleViewUserDetails(blockedUser.username)}
                         >
                           <i className="fas fa-user-check"></i>
                           <span>Ver Detalles</span>
@@ -475,7 +707,7 @@ const AdminPanel = ({ user, onNotify }) => {
                         
                         <button 
                           className="action-btn unblock"
-                          onClick={() => handleUnblockUser(blockedUser.username)}
+                          onClick={async () => await handleUnblockUser(blockedUser.username)}
                         >
                           <i className="fas fa-unlock"></i>
                           <span>Desbloquear usuario</span>
@@ -494,7 +726,7 @@ const AdminPanel = ({ user, onNotify }) => {
             )}
 
             {/* User Details Tab */}
-            {activeTab === 'userDetails' && selectedUser && (
+            {!loading && activeTab === 'userDetails' && selectedUser && (
               <div className="user-details-section-modern">
                 <div className="user-details-close-btn-container">
                   <button 
@@ -521,23 +753,23 @@ const AdminPanel = ({ user, onNotify }) => {
                         <i className={`fas ${selectedUser.role === 'admin' ? 'fa-crown' : 'fa-user'}`}></i>
                         {selectedUser.role === 'admin' ? 'Administrador' : 'Usuario'}
                       </span>
-                      <span className={`status-badge ${selectedUser.isBlocked ? 'blocked' : 'active'}`}>
-                        <i className={`fas ${selectedUser.isBlocked ? 'fa-ban' : 'fa-check-circle'}`}></i>
-                        {selectedUser.isBlocked ? 'Bloqueado' : 'Activo'}
+                      <span className={`status-badge ${isUserBlockedStatus(selectedUser) ? 'blocked' : 'active'}`}>
+                        <i className={`fas ${isUserBlockedStatus(selectedUser) ? 'fa-ban' : 'fa-check-circle'}`}></i>
+                        {isUserBlockedStatus(selectedUser) ? 'Bloqueado' : 'Activo'}
                       </span>
                     </div>
                   </div>
                   <div className="user-actions-header">
                     {selectedUser.role !== 'admin' && (
                       <button 
-                        className={`action-btn ${selectedUser.isBlocked ? 'unblock' : 'block'}`}
-                        onClick={() => selectedUser.isBlocked ? 
-                          handleUnblockUser(selectedUser.username) : 
-                          handleBlockUser(selectedUser.username)
+                        className={`action-btn ${isUserBlockedStatus(selectedUser) ? 'unblock' : 'block'}`}
+                        onClick={async () => isUserBlockedStatus(selectedUser) ? 
+                          await handleUnblockUser(selectedUser.username) : 
+                          await handleBlockUser(selectedUser.username)
                         }
                       >
-                        <i className={`fas ${selectedUser.isBlocked ? 'fa-unlock' : 'fa-ban'}`}></i>
-                        <span>{selectedUser.isBlocked ? 'Desbloquear' : 'Bloquear'}</span>
+                        <i className={`fas ${isUserBlockedStatus(selectedUser) ? 'fa-unlock' : 'fa-ban'}`}></i>
+                        <span>{isUserBlockedStatus(selectedUser) ? 'Desbloquear' : 'Bloquear'}</span>
                       </button>
                     )}
                   </div>
@@ -605,11 +837,11 @@ const AdminPanel = ({ user, onNotify }) => {
                                 {report.reason}
                               </span>
                               <span className="report-date">
-                                {new Date(report.timestamp).toLocaleDateString()}
+                                {new Date(report.created_at || report.timestamp).toLocaleDateString()}
                               </span>
                             </div>
                             <div className="report-item-body">
-                              <p><strong>Reportado por:</strong> {report.reporterUsername}</p>
+                              <p><strong>Reportado por:</strong> {report.reporter_username || report.reporterUsername}</p>
                               {report.description && (
                                 <p className="report-description">"{report.description}"</p>
                               )}

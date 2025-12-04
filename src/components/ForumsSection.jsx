@@ -1,14 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CreateTopicModal from './modals/CreateTopicModal';
-import { checkUserPermission, isUserBlocked, handleTopicVote, validateAndCleanVoteData } from '../utils/roleUtils';
+import { checkUserPermission, isUserBlocked } from '../utils/roleUtils';
 import { shareTopicUrl } from '../utils/shareUtils';
-import { 
-  TOPICS_KEY, 
-  POSTS_KEY, 
-  safeStorageGet, 
-  safeStorageSet 
-} from '../utils/storage';
+import { TopicsAPI } from '../services/api';
+import { getAuthSession } from '../utils/storage';
 
 const ForumsSection = ({ onNotify }) => {
   const navigate = useNavigate();
@@ -17,85 +13,44 @@ const ForumsSection = ({ onNotify }) => {
   const [lastVoteTime, setLastVoteTime] = useState({});
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const [topics, setTopics] = useState(() => {
-    console.log('🔄 ForumsSection: Initializing topics from storage');
-    const storedTopics = safeStorageGet(TOPICS_KEY, []);
-    console.log('📂 ForumsSection: Loaded topics:', storedTopics);
-    
-    // Validar y limpiar datos de votos para prevenir valores negativos
-    validateAndCleanVoteData();
-    
-    return storedTopics;
-  });
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // useEffect para limpiar datos de localStorage solo al montar el componente
-  useEffect(() => {
-    console.log('🔄 ForumsSection: Component mounted');
-    
-    // Validar y limpiar datos una sola vez al cargar
-    validateAndCleanVoteData();
-    
-    // Sincronizar topics desde localStorage
-    const syncTopicsFromStorage = () => {
-      const storageTopics = safeStorageGet(TOPICS_KEY, []);
-      console.log('🔄 ForumsSection: Syncing topics from storage:', storageTopics);
+  // Cargar temas desde la API
+  const loadTopics = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      // Solo actualizar si hay cambios reales
-      setTopics(prevTopics => {
-        const currentDataStr = JSON.stringify(prevTopics);
-        const storageDataStr = JSON.stringify(storageTopics);
-        
-        if (currentDataStr !== storageDataStr) {
-          console.log('📝 ForumsSection: Topics state updated from storage');
-          return storageTopics;
-        }
-        return prevTopics;
-      });
-    };
-
-    // Listener para cambios en localStorage
-    const handleStorageChange = (e) => {
-      if (e.key === TOPICS_KEY) {
-        console.log('🔔 ForumsSection: localStorage change detected for topics');
-        syncTopicsFromStorage();
+      const topics = await TopicsAPI.getAll({ sortBy, limit: 50 });
+      console.log('📂 ForumsSection: Loaded topics from API:', topics);
+      
+      setTopics(topics || []);
+    } catch (error) {
+      console.error('❌ Error loading topics:', error);
+      setError(error.message || 'Error al cargar los temas');
+      
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudieron cargar los temas. Verifica que el servidor esté funcionando.'
+        });
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  }, [sortBy, onNotify]);
 
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []); // No incluir topics para evitar loops
+  // Cargar temas al montar el componente y cuando cambie el filtro
+  useEffect(() => {
+    console.log('🔄 ForumsSection: Component mounted or sortBy changed');
+    loadTopics();
+  }, [loadTopics]);
 
   const handleSort = (type) => {
     setSortBy(type);
-    
-    // Crear una copia de los topics para ordenar
-    const sortedTopics = [...topics];
-    
-    switch (type) {
-      case 'hot':
-        // Ordenar por score (upvotes - downvotes) y comentarios
-        sortedTopics.sort((a, b) => {
-          const scoreA = (a.upvotes || 0) - (a.downvotes || 0) + (a.comments || 0) * 0.5;
-          const scoreB = (b.upvotes || 0) - (b.downvotes || 0) + (b.comments || 0) * 0.5;
-          return scoreB - scoreA;
-        });
-        break;
-      case 'new':
-        // Ordenar por fecha de creación (más reciente primero)
-        sortedTopics.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      case 'top':
-        // Ordenar solo por upvotes
-        sortedTopics.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
-        break;
-      default:
-        break;
-    }
-    
-    setTopics(sortedTopics);
     
     if (onNotify) onNotify({ 
       type: 'success', 
@@ -104,27 +59,14 @@ const ForumsSection = ({ onNotify }) => {
     });
   };
 
-    const getCurrentUser = useCallback(() => {
+  const getCurrentUser = useCallback(() => {
     try {
-      const session = JSON.parse(localStorage.getItem('sf_auth_session') || '{}');
-      return session.user || null;
+      const auth = getAuthSession();
+      return auth?.user || null;
     } catch {
       return null;
     }
   }, []);
-
-  const getUserVoteStatus = useCallback((topicId) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return null;
-    
-    try {
-      const userVotes = JSON.parse(localStorage.getItem('sf_user_votes') || '{}');
-      const userVoteKey = `${currentUser.id}_${topicId}`;
-      return userVotes[userVoteKey] || null;
-    } catch {
-      return null;
-    }
-  }, [getCurrentUser]);
 
   // Función para validar que un usuario no pueda votar múltiples veces
   const validateVoteAttempt = useCallback((_topicId, _voteType) => {
@@ -139,13 +81,11 @@ const ForumsSection = ({ onNotify }) => {
       return false;
     }
     
-    // La validación específica se hace en handleVote
-    // Esta función actúa como un filtro previo simple
     return true;
   }, [getCurrentUser, onNotify]);
 
-  // Función para crear un nuevo topic desde ForumsSection
-  const handleCreateTopic = useCallback(({ title, content, category }) => {
+  // Función para crear un nuevo topic usando la API
+  const handleCreateTopic = useCallback(async ({ title, content, category }) => {
     const currentUser = getCurrentUser();
     
     if (!currentUser) {
@@ -177,77 +117,44 @@ const ForumsSection = ({ onNotify }) => {
       return;
     }
 
-    // Generar ID único para el topic
-    const topicId = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    
-    // Crear el nuevo topic
-    const newTopic = {
-      id: topicId,
-      title: title.trim(),
-      description: content.trim(),
-      author: currentUser.username || 'Usuario',
-      authorAvatar: (currentUser.username || 'U')[0].toUpperCase(),
-      createdAt: Date.now(),
-      category: category || 'general',
-      upvotes: 0,
-      downvotes: 0,
-      replies: 0,
-      views: 0,
-      isPinned: false,
-      isLocked: false
-    };
-
-    // Actualizar la lista de topics
-    setTopics(prevTopics => [newTopic, ...prevTopics]);
-
-    // Persistir en localStorage
     try {
-      console.log('💾 ForumsSection: Saving new topic to storage');
-      
-      // Cargar topics existentes del localStorage
-      const currentTopics = safeStorageGet(TOPICS_KEY, []);
-      const updatedTopics = [newTopic, ...currentTopics];
-      safeStorageSet(TOPICS_KEY, updatedTopics);
-      
-      // Cargar postsMap existente y agregar topic vacío
-      const currentPostsMap = safeStorageGet(POSTS_KEY, {});
-      const updatedPostsMap = { ...currentPostsMap, [topicId]: [] };
-      safeStorageSet(POSTS_KEY, updatedPostsMap);
+      // Crear el topic usando la API
+      const topicData = {
+        title: title.trim(),
+        description: content.trim(),
+        category: category || 'general',
+        author_id: currentUser.id
+      };
 
-      console.log('✅ ForumsSection: Topic saved successfully');
+      const newTopic = await TopicsAPI.create(topicData);
+      
+      // Actualizar la lista local
+      setTopics(prevTopics => [newTopic, ...prevTopics]);
 
-      // Cerrar modal y notificar
+      // Cerrar modal y mostrar notificación
       setShowCreateModal(false);
       
-      if (onNotify) {
-        onNotify({
-          type: 'success',
-          title: 'Topic creado',
-          message: `"${title}" ha sido creado exitosamente`
-        });
-      }
-
-      // Navegar al nuevo topic
-      console.log('🧭 ForumsSection: Navigating to topic:', topicId);
-      navigate(`/topic/${topicId}`);
+      if (onNotify) onNotify({
+        type: 'success',
+        title: 'Topic creado',
+        message: `El topic "${title}" ha sido creado exitosamente`
+      });
 
     } catch (error) {
-      console.error('❌ ForumsSection: Error al crear topic:', error);
-      if (onNotify) {
-        onNotify({
-          type: 'error',
-          title: 'Error',
-          message: 'No se pudo crear el topic. Inténtalo nuevamente.'
-        });
-      }
+      console.error('❌ Error creating topic:', error);
+      
+      if (onNotify) onNotify({
+        type: 'error',
+        title: 'Error al crear topic',
+        message: error.message || 'No se pudo crear el topic'
+      });
     }
   }, [getCurrentUser, onNotify, navigate, setTopics]);
 
-  const handleVote = useCallback((topicId, voteType) => {
+  const handleVote = useCallback(async (topicId, voteType) => {
     const currentUser = getCurrentUser();
     
     if (!currentUser) {
-      // Solo mostrar notificación si onNotify está disponible
       if (onNotify && typeof onNotify === 'function') {
         onNotify({
           type: 'warning',
@@ -282,47 +189,41 @@ const ForumsSection = ({ onNotify }) => {
     setVotingInProgress(prev => new Set([...prev, topicId]));
 
     try {
-      // Usar la función centralizada para manejar el voto
-      const result = handleTopicVote(topicId, voteType, currentUser);
+      // Datos para el voto
+      const voteData = {
+        user_id: parseInt(currentUser.id),
+        vote_type: voteType
+      };
       
-      // Actualizar el estado local con los topics actualizados
-      setTopics(result.updatedTopics);
+      console.log('🗳️ ForumsSection voting:', { topicId, voteData });
+      
+      // Usar la API para votar
+      await TopicsAPI.vote(topicId, voteData);
+      
+      // Recargar los topics para obtener los votos actualizados
+      loadTopics();
 
-      // Notificar resultado
+      // Notificar resultado exitoso
       if (onNotify) {
         onNotify({
           type: 'success',
-          title: 'Votación actualizada',
-          message: result.message
+          title: 'Voto registrado',
+          message: `Tu ${voteType === 'up' ? 'voto positivo' : 'voto negativo'} ha sido registrado`
         });
       }
+
     } catch (error) {
-      console.error('Error al guardar voto:', error);
-      
-      // Manejar errores específicos
-      let errorMessage = 'No se pudo registrar el voto. Inténtalo nuevamente.';
-      let errorTitle = 'Error';
-      
-      if (error.message.includes('Usuario bloqueado')) {
-        errorTitle = 'Cuenta suspendida';
-        errorMessage = 'Tu cuenta ha sido suspendida y no puedes votar';
-      } else if (error.message.includes('Sin permisos')) {
-        errorTitle = 'Sin permisos';
-        errorMessage = 'No tienes permisos para votar';
-      } else if (error.message === 'VOTE_WOULD_BE_NEGATIVE') {
-        errorTitle = 'Voto no permitido';
-        errorMessage = 'No puedes votar negativo cuando el score sería menor que 0';
-      }
+      console.error('❌ Error voting:', error);
       
       if (onNotify) {
         onNotify({
           type: 'error',
-          title: errorTitle,
-          message: errorMessage
+          title: 'Error al votar',
+          message: error.message || 'No se pudo registrar el voto'
         });
       }
     } finally {
-      // Limpiar el estado de votación en progreso
+      // Remover del progreso de votación
       setVotingInProgress(prev => {
         const newSet = new Set(prev);
         newSet.delete(topicId);
@@ -428,9 +329,35 @@ const ForumsSection = ({ onNotify }) => {
           </button>
         </div>
 
+        {/* Loading state */}
+        {loading && (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+            <p className="mt-2 text-muted">Cargando temas...</p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && !loading && (
+          <div className="alert alert-danger" role="alert">
+            <h4 className="alert-heading">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              Error de conexión
+            </h4>
+            <p>{error}</p>
+            <button className="btn btn-outline-danger" onClick={loadTopics}>
+              <i className="fas fa-redo me-2"></i>
+              Reintentar
+            </button>
+          </div>
+        )}
+
         {/* Lista de topics estilo Reddit */}
-        <div className="topics-list">
-          {topics.length === 0 ? (
+        {!loading && !error && (
+          <div className="topics-list">
+            {topics.length === 0 ? (
             <div className="empty-state">
               <i className="fas fa-comments fa-4x"></i>
               <h4>No hay topics todavía</h4>
@@ -467,20 +394,36 @@ const ForumsSection = ({ onNotify }) => {
               <div 
                 key={topic.id} 
                 className="topic-card-reddit"
-                onClick={() => navigate(`/topic/${topic.id}`)}
+                onClick={async () => {
+                  try {
+                    // Incrementar vistas usando la API
+                    await TopicsAPI.incrementViews(topic.id);
+                  } catch (error) {
+                    console.error('Error incrementing views:', error);
+                  }
+                  navigate(`/topic/${topic.id}`);
+                }}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/topic/${topic.id}`); }}
+                onKeyDown={async (e) => { 
+                  if (e.key === 'Enter') {
+                    try {
+                      await TopicsAPI.incrementViews(topic.id);
+                    } catch (error) {
+                      console.error('Error incrementing views:', error);
+                    }
+                    navigate(`/topic/${topic.id}`);
+                  }
+                }}
               >
                 {/* Voting sidebar */}
                 <div className="vote-sidebar">
                   {(() => {
-                    const userVote = getUserVoteStatus(topic.id);
                     const isVoting = votingInProgress.has(topic.id);
                     return (
                       <>
                         <button 
-                          className={`vote-btn upvote ${userVote === 'up' ? 'active' : ''} ${isVoting ? 'voting' : ''}`}
+                          className={`vote-btn upvote ${isVoting ? 'voting' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -490,13 +433,13 @@ const ForumsSection = ({ onNotify }) => {
                           }}
                           disabled={isVoting}
                           aria-label="Upvote"
-                          title={isVoting ? "Procesando voto..." : userVote === 'up' ? "Remover voto positivo" : "Votar positivo"}
+                          title={isVoting ? "Procesando voto..." : "Votar positivo"}
                         >
                           <i className={`fas ${isVoting ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`}></i>
                         </button>
                         <span className="vote-score" aria-live="polite">{score}</span>
                         <button 
-                          className={`vote-btn downvote ${userVote === 'down' ? 'active' : ''} ${isVoting ? 'voting' : ''}`}
+                          className={`vote-btn downvote ${isVoting ? 'voting' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -506,7 +449,7 @@ const ForumsSection = ({ onNotify }) => {
                           }}
                           disabled={isVoting}
                           aria-label="Downvote"
-                          title={isVoting ? "Procesando voto..." : userVote === 'down' ? "Remover voto negativo" : "Votar negativo"}
+                          title={isVoting ? "Procesando voto..." : "Votar negativo"}
                         >
                           <i className={`fas ${isVoting ? 'fa-spinner fa-spin' : 'fa-arrow-down'}`}></i>
                         </button>
@@ -561,7 +504,8 @@ const ForumsSection = ({ onNotify }) => {
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
       
       {/* Modal para crear nuevo topic */}

@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getDashboardData, UsersAPI } from '../services/api';
 
-const StatCard = ({ icon, title, value, delta }) => (
+const StatCard = ({ icon, title, value, delta, loading = false }) => (
   <div className="dashboard-stat-card card-custom">
     <div className="stat-content">
       <div className="stat-icon-wrapper">
@@ -9,8 +10,16 @@ const StatCard = ({ icon, title, value, delta }) => (
       </div>
       <div className="stat-info">
         <div className="stat-title">{title}</div>
-        <div className="stat-value">{value}</div>
-        {delta !== undefined && (
+        <div className="stat-value">
+          {loading ? (
+            <div className="loading-placeholder">
+              <i className="fas fa-spinner fa-spin"></i>
+            </div>
+          ) : (
+            value || '0'
+          )}
+        </div>
+        {!loading && delta !== undefined && (
           <div className={`stat-delta ${delta >= 0 ? 'positive' : 'negative'}`}>
             <i className={`fas fa-arrow-${delta >= 0 ? 'up' : 'down'}`} />
             {Math.abs(delta)}%
@@ -100,60 +109,77 @@ const ProfileEditForm = ({ user, onSave, onCancel, existingUsernames }) => {
 const calculateUserStats = (username) => {
   if (!username) return { topicsCreated: 0, repliesCreated: 0, reputation: 0, participatedTopics: 0 };
 
-  // Obtener datos del localStorage
-  const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-  const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-  
-  // Calcular temas creados por el usuario
-  const topicsCreated = topics.filter(topic => topic.author === username).length;
-  
-  // Calcular respuestas creadas por el usuario (posts en temas de otros)
-  let repliesCreated = 0;
-  Object.values(postsMap).forEach(posts => {
-    if (Array.isArray(posts)) {
-      repliesCreated += posts.filter(post => post.author === username).length;
+  try {
+    // Obtener datos del localStorage con manejo de errores
+    const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
+    const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
+    
+    // Validar que los datos son arrays/objetos válidos
+    if (!Array.isArray(topics) || typeof postsMap !== 'object') {
+      return { topicsCreated: 0, repliesCreated: 0, reputation: 0, participatedTopics: 0 };
     }
-  });
-
-  // Calcular topics únicos en los que ha participado (diversidad de participación)
-  const participatedTopics = new Set();
-  Object.keys(postsMap).forEach(topicId => {
-    const posts = postsMap[topicId];
-    if (Array.isArray(posts)) {
-      const hasUserPosts = posts.some(post => post.author === username);
-      if (hasUserPosts) {
-        participatedTopics.add(topicId);
+    
+    // Calcular temas creados por el usuario
+    const topicsCreated = topics.filter(topic => 
+      topic && (topic.author === username || topic.author_username === username)
+    ).length;
+    
+    // Calcular respuestas creadas por el usuario (posts en temas de otros)
+    let repliesCreated = 0;
+    Object.values(postsMap).forEach(posts => {
+      if (Array.isArray(posts)) {
+        repliesCreated += posts.filter(post => 
+          post && (post.author === username || post.author_username === username)
+        ).length;
       }
-    }
-  });
-  
-  // Calcular reputación basada en votos recibidos
-  let reputation = 0;
-  Object.values(postsMap).forEach(posts => {
-    if (Array.isArray(posts)) {
-      posts.forEach(post => {
-        if (post.author === username) {
-          reputation += (post.likes || 0) - (post.dislikes || 0);
-        }
-      });
-    }
-  });
-  
-  // Calcular votos en topics del usuario
-  topics.forEach(topic => {
-    if (topic.author === username) {
-      reputation += (topic.likes || 0) - (topic.dislikes || 0);
-    }
-  });
-  
+    });
 
-  
-  return {
-    topicsCreated,
-    repliesCreated,
-    reputation, // Permitir reputación negativa (es realista)
-    participatedTopics: participatedTopics.size
-  };
+    // Calcular topics únicos en los que ha participado (diversidad de participación)
+    const participatedTopics = new Set();
+    Object.keys(postsMap).forEach(topicId => {
+      const posts = postsMap[topicId];
+      if (Array.isArray(posts)) {
+        const hasUserPosts = posts.some(post => 
+          post && (post.author === username || post.author_username === username)
+        );
+        if (hasUserPosts) {
+          participatedTopics.add(topicId);
+        }
+      }
+    });
+    
+    // Calcular reputación basada en votos recibidos
+    let reputation = 0;
+    
+    // Reputación de topics
+    topics.forEach(topic => {
+      if (topic && (topic.author === username || topic.author_username === username)) {
+        reputation += (topic.upvotes || 0) - (topic.downvotes || 0);
+      }
+    });
+    
+    // Reputación de posts/respuestas
+    Object.values(postsMap).forEach(posts => {
+      if (Array.isArray(posts)) {
+        posts.forEach(post => {
+          if (post && (post.author === username || post.author_username === username)) {
+            reputation += (post.likes || 0) - (post.dislikes || 0);
+          }
+        });
+      }
+    });
+
+    return {
+      topicsCreated,
+      repliesCreated,
+      reputation,
+      participatedTopics: participatedTopics.size
+    };
+    
+  } catch (error) {
+    console.error('Error calculating user stats:', error);
+    return { topicsCreated: 0, repliesCreated: 0, reputation: 0, participatedTopics: 0 };
+  }
 };
 
 // Función para formatear números grandes (actualmente no se usa pero puede ser útil)
@@ -181,50 +207,41 @@ const calculateDelta = (current, previous) => {
 };
 
 // Función para obtener actividad reciente del usuario
-const getRecentActivity = (username) => {
-  if (!username) return [];
+const getRecentActivityFromAPI = (dashboardData, username) => {
+  if (!dashboardData || !username) return [];
 
-  const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-  const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-  
   const activities = [];
   
-  // Obtener temas creados por el usuario
-  const userTopics = topics
-    .filter(topic => topic.author === username)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  // Obtener temas creados por el usuario desde la API
+  const userTopics = (dashboardData.recentTopics || [])
+    .filter(topic => topic.author_username === username)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 3); // Últimos 3 temas
   
   userTopics.forEach(topic => {
     activities.push({
       type: 'topic_created',
       title: topic.title,
-      time: topic.createdAt,
+      time: topic.created_at,
       icon: 'fa-plus-circle'
     });
   });
   
-  // Obtener posts/respuestas del usuario
-  Object.entries(postsMap).forEach(([topicId, posts]) => {
-    if (Array.isArray(posts)) {
-      const userPosts = posts
-        .filter(post => post.author === username)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 2); // Últimos 2 posts por tema
-      
-      userPosts.forEach(post => {
-        const topic = topics.find(t => t.id === parseInt(topicId));
-        if (topic) {
-          activities.push({
-            type: 'post_created',
-            title: topic.title,
-            time: post.createdAt,
-            icon: 'fa-comment'
-          });
-        }
+  // También podríamos agregar posts del usuario si están disponibles en dashboardData
+  if (dashboardData.recentPosts) {
+    const userPosts = dashboardData.recentPosts
+      .filter(post => post.author_username === username)
+      .slice(0, 2); // Últimos 2 posts
+    
+    userPosts.forEach(post => {
+      activities.push({
+        type: 'post_created', 
+        title: post.topic_title || 'Respuesta en tema',
+        time: post.created_at,
+        icon: 'fa-comment'
       });
-    }
-  });
+    });
+  }
   
   // Ordenar por fecha y tomar los más recientes
   return activities
@@ -257,42 +274,155 @@ const getRelativeTime = (dateString) => {
 const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, onNotify }) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const [previousStats, setPreviousStats] = useState(null);
+  const [previousStats, setPreviousStats] = useState({
+    topicsCreated: 0,
+    repliesCreated: 0,
+    reputation: 0,
+    participatedTopics: 0
+  });
+  const [currentStats, setCurrentStats] = useState({
+    topicsCreated: 0,
+    repliesCreated: 0,
+    reputation: 0,
+    participatedTopics: 0
+  });
+  const [dashboardData, setDashboardData] = useState({
+    recentTopics: [],
+    totalUsers: 0,
+    totalTopics: 0,
+    totalPosts: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleProfileSave = (updatedData) => {
-    if (onUpdateUser) {
-      onUpdateUser(updatedData);
+  // Cargar datos del dashboard desde la API
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const data = await getDashboardData();
+        setDashboardData(data);
+        
+        // Calcular estadísticas reales del usuario basadas en los datos de la API
+        const allTopics = data.recentTopics || [];
+        const userTopics = allTopics.filter(topic => topic.author_username === user.username);
+        
+        // Obtener posts del usuario desde la API
+        const getUserPosts = async () => {
+          try {
+            const postsData = await PostsAPI.getAll({ author_username: user.username });
+            return postsData || [];
+          } catch (err) {
+            console.warn('Could not fetch user posts:', err);
+            return [];
+          }
+        };
+        
+        const userPosts = await getUserPosts();
+        
+        const userStats = {
+          topicsCreated: userTopics.length,
+          repliesCreated: userPosts.length,
+          reputation: userTopics.reduce((sum, topic) => sum + ((topic.upvotes || 0) - (topic.downvotes || 0)), 0) +
+                     userPosts.reduce((sum, post) => sum + ((post.likes || 0) - (post.dislikes || 0)), 0),
+          participatedTopics: new Set([...userTopics.map(t => t.id), ...userPosts.map(p => p.topic_id)]).size
+        };
+        setCurrentStats(userStats);
+        
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setError(error.message);
+        
+        if (onNotify) {
+          onNotify({
+            type: 'warning',
+            title: 'Datos limitados',
+            message: 'No se pudieron cargar algunos datos del servidor'
+          });
+        }
+        
+        // Usar datos de fallback
+        setCurrentStats(calculateUserStats(user.username));
+        
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadDashboardData();
+  }, [user.username, onNotify]);
+
+  const handleProfileSave = async (updatedData) => {
+    try {
+      // Actualizar en la API
+      const updatedUser = await UsersAPI.update(user.id, {
+        username: updatedData.username,
+        email: updatedData.email,
+        role: user.role,
+        is_blocked: user.is_blocked || 0
+      });
+
+      // Si tiene éxito, actualizar en el componente padre
+      if (onUpdateUser) {
+        onUpdateUser(updatedData);
+      }
+
       setIsEditing(false);
+      
       if (onNotify) {
         onNotify({
           type: 'success',
           title: 'Perfil actualizado',
-          message: 'Tu información se ha guardado correctamente'
+          message: 'Tu información se ha guardado correctamente en el servidor'
         });
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      
+      // Intentar guardar localmente como fallback
+      if (onUpdateUser) {
+        onUpdateUser(updatedData);
+        setIsEditing(false);
+        
+        if (onNotify) {
+          onNotify({
+            type: 'warning',
+            title: 'Guardado localmente',
+            message: 'Tu perfil se guardó localmente, pero no se pudo sincronizar con el servidor'
+          });
+        }
+      } else {
+        if (onNotify) {
+          onNotify({
+            type: 'error',
+            title: 'Error',
+            message: 'No se pudo actualizar el perfil: ' + (error.message || 'Error desconocido')
+          });
+        }
       }
     }
   };
 
-  // Calcular estadísticas reales del usuario
-  const currentStats = useMemo(() => {
-    return calculateUserStats(user.username);
-  }, [user.username]);
-
-  // Cargar estadísticas anteriores del localStorage y guardar las actuales
-  // Cargar estadísticas previas solo al montar
+  // Cargar estadísticas anteriores del localStorage solo al montar
   useEffect(() => {
     const statsKey = `sf_user_stats_${user.username}`;
     const savedStats = JSON.parse(localStorage.getItem(statsKey) || 'null');
-    // Defer setState to avoid calling synchronously in effect
-    Promise.resolve().then(() => {
-      if (savedStats) {
-        setPreviousStats(savedStats);
-      } else {
-        // Si no hay estadísticas anteriores, usar las actuales como base
-        setPreviousStats(currentStats);
-      }
-    });
-  }, [user.username, currentStats]);
+    
+    if (savedStats) {
+      setPreviousStats(savedStats);
+    } else {
+      // Si no hay estadísticas anteriores, inicializar con zeros
+      const initialStats = {
+        topicsCreated: 0,
+        repliesCreated: 0,
+        reputation: 0,
+        participatedTopics: 0
+      };
+      setPreviousStats(initialStats);
+    }
+  }, [user.username]); // Solo depender del username
 
   // Guardar estadísticas cuando cambien
   useEffect(() => {
@@ -302,40 +432,52 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
 
   // Crear array de estadísticas con deltas calculados
   const stats = useMemo(() => {
-    if (!previousStats) return [];
+    if (!previousStats || !currentStats) {
+      // Return loading stats while data is being loaded
+      return [
+        { icon: 'fa-plus-circle', title: 'Temas Creados', value: '0', loading: true },
+        { icon: 'fa-reply', title: 'Respuestas Dadas', value: '0', loading: true },
+        { icon: 'fa-comments', title: 'Temas Participados', value: '0', loading: true },
+        { icon: 'fa-star', title: 'Reputación', value: '0', loading: true }
+      ];
+    }
 
     return [
       { 
         icon: 'fa-plus-circle', 
         title: 'Temas Creados', 
-        value: currentStats.topicsCreated.toString(), 
-        delta: calculateDelta(currentStats.topicsCreated, previousStats.topicsCreated)
+        value: (currentStats.topicsCreated || 0).toString(), 
+        delta: calculateDelta(currentStats.topicsCreated || 0, previousStats.topicsCreated || 0),
+        loading: false
       },
       { 
         icon: 'fa-reply', 
         title: 'Respuestas Dadas', 
-        value: currentStats.repliesCreated.toString(), 
-        delta: calculateDelta(currentStats.repliesCreated, previousStats.repliesCreated)
+        value: (currentStats.repliesCreated || 0).toString(), 
+        delta: calculateDelta(currentStats.repliesCreated || 0, previousStats.repliesCreated || 0),
+        loading: false
       },
       { 
         icon: 'fa-comments', 
         title: 'Temas Participados', 
-        value: currentStats.participatedTopics.toString(), 
-        delta: calculateDelta(currentStats.participatedTopics, previousStats.participatedTopics)
+        value: (currentStats.participatedTopics || 0).toString(), 
+        delta: calculateDelta(currentStats.participatedTopics || 0, previousStats.participatedTopics || 0),
+        loading: false
       },
       { 
         icon: 'fa-star', 
         title: 'Reputación', 
-        value: currentStats.reputation >= 0 ? `+${currentStats.reputation}` : currentStats.reputation.toString(), 
-        delta: calculateDelta(currentStats.reputation, previousStats.reputation)
+        value: (currentStats.reputation || 0) >= 0 ? `+${currentStats.reputation || 0}` : (currentStats.reputation || 0).toString(), 
+        delta: calculateDelta(currentStats.reputation || 0, previousStats.reputation || 0),
+        loading: false
       },
     ];
   }, [currentStats, previousStats]);
 
   // Obtener actividad reciente del usuario
   const recentActivity = useMemo(() => {
-    return getRecentActivity(user.username);
-  }, [user.username]);
+    return getRecentActivityFromAPI(dashboardData, user.username);
+  }, [dashboardData, user.username]);
 
   // Escuchar cambios en localStorage para actualizar estadísticas en tiempo real
   useEffect(() => {
@@ -363,6 +505,60 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
     return () => clearInterval(interval);
   }, [user.username]);
 
+  // Loading state
+  if (loading) {
+    return (
+      <section className="dashboard-section">
+        <div className="container">
+          <div className="dashboard-header">
+            <h1 className="dashboard-title">
+              <i className="fas fa-tachometer-alt me-3" />
+              Dashboard
+            </h1>
+            <p className="dashboard-subtitle">Bienvenido de vuelta, {user.username}</p>
+          </div>
+          <div className="text-center py-5">
+            <div className="loading-spinner">
+              <i className="fas fa-spinner fa-spin fa-2x text-primary"></i>
+            </div>
+            <p className="mt-3 text-muted">Cargando datos del dashboard...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="dashboard-section">
+        <div className="container">
+          <div className="dashboard-header">
+            <h1 className="dashboard-title">
+              <i className="fas fa-tachometer-alt me-3" />
+              Dashboard
+            </h1>
+            <p className="dashboard-subtitle">Bienvenido de vuelta, {user.username}</p>
+          </div>
+          <div className="text-center py-5">
+            <div className="error-state">
+              <i className="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+              <h4>Error al cargar datos</h4>
+              <p className="text-muted mb-3">{error}</p>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => window.location.reload()}
+              >
+                <i className="fas fa-refresh me-2"></i>
+                Reintentar
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="dashboard-section">
       <div className="container">
@@ -372,6 +568,12 @@ const DashboardSection = ({ user, onNavigate, onUpdateUser, existingUsernames, o
             Dashboard
           </h1>
           <p className="dashboard-subtitle">Bienvenido de vuelta, {user.username}</p>
+          {error && (
+            <div className="alert alert-warning mt-2" role="alert">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              Algunos datos no están disponibles. Verifica que el servidor esté funcionando.
+            </div>
+          )}
         </div>
 
         <div className="dashboard-content">

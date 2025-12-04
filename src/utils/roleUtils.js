@@ -77,6 +77,8 @@ export const REPORT_COOLDOWN_MS = 20 * 60 * 1000; // 20 minutos
 export const canReportUser = (reporterUsername, reportedUsername) => {
   if (reporterUsername === reportedUsername) return false; // No puedes reportarte a ti mismo
   
+  // Solo verificar localStorage por ahora (mantenemos compatibilidad)
+  // La API ya maneja su propia validación de cooldown
   const reports = JSON.parse(localStorage.getItem('sf_reports') || '[]');
   const lastReport = reports
     .filter(r => r.reporterUsername === reporterUsername && r.reportedUsername === reportedUsername)

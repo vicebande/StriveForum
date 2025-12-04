@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import PostThreadModal from './PostThreadModal';
 import ReportUserModal from './ReportUserModal';
+import { PostsAPI } from '../../services/api';
 
-const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded }) => {
+const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded, onPostUpdated }) => {
   const [post, setPost] = useState(initialPost || null);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -48,27 +49,13 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
     }
   }, [initialPost, loadRepliesFromStorage]);
 
-  const persistReply = useCallback((postId, replyObj) => {
-    try {
-      const postsData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-      const updated = { ...postsData };
-      
-      // Buscar en todas las categorías
-      Object.keys(updated).forEach(categoryId => {
-        const postIndex = updated[categoryId].findIndex(p => p.id === postId);
-        if (postIndex !== -1) {
-          updated[categoryId][postIndex].replies = updated[categoryId][postIndex].replies || [];
-          updated[categoryId][postIndex].replies.push(replyObj);
-        }
-      });
-      
-      localStorage.setItem('sf_postsMap', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Error saving reply:', err);
-    }
+  // persistReply ya no es necesario - usamos la API directamente
+  const persistReply = useCallback(() => {
+    // Esta función ya no es necesaria porque usamos la API
+    // Se mantiene para compatibilidad
   }, []);
 
-  const handleReply = useCallback((content) => {
+  const handleReply = useCallback(async (content) => {
     const user = getCurrentUser();
     if (!user) {
       if (onNotify) onNotify({
@@ -79,41 +66,54 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
       return;
     }
     
-    const reply = {
-      id: 'r_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
-      author: user.username,
-      authorId: user.id,
-      authorAvatar: user.username[0].toUpperCase(),
-      content: content.trim(),
-      createdAt: new Date().toISOString(),
-      likes: 0,
-      parentId: replyingTo ? replyingTo.id : null,
-      depth: replyingTo ? (replyingTo.depth || 0) + 1 : 0
-    };
+    try {
+      // Crear respuesta usando la API
+      const replyData = {
+        author_id: user.id,
+        content: content.trim()
+      };
 
-    // Actualizar estado local
-    setPost(prev => {
-      if (!prev) return prev;
-      const updatedReplies = [...(prev.replies || []), reply];
-      return { ...prev, replies: updatedReplies };
-    });
+      console.log('🔄 Creating reply via PostModal API:', replyData);
+      const newReply = await PostsAPI.createReply(post.id, replyData);
+      console.log('✅ Reply created successfully:', newReply);
 
-    // Persistir
-    persistReply(post.id, reply);
-    setShowReplyModal(false);
-    setReplyingTo(null);
+      // Recargar el post completo desde la API para mantener sincronización
+      try {
+        const updatedPost = await PostsAPI.getById(post.id);
+        setPost(updatedPost);
+      } catch (error) {
+        // Si falla la recarga, actualizar manualmente
+        setPost(prev => {
+          if (!prev) return prev;
+          const updatedReplies = [...(prev.replies || []), newReply];
+          return { ...prev, replies: updatedReplies };
+        });
+      }
 
-    // Notificar al componente padre que se agregó una respuesta
-    if (onReplyAdded && typeof onReplyAdded === 'function') {
-      onReplyAdded();
-    }
+      setShowReplyModal(false);
+      setReplyingTo(null);
 
-    if (onNotify) {
-      onNotify({
-        type: 'success',
-        title: 'Respuesta publicada',
-        message: 'Tu respuesta se ha añadido correctamente'
-      });
+      // Notificar al componente padre que se agregó una respuesta
+      if (onReplyAdded && typeof onReplyAdded === 'function') {
+        onReplyAdded();
+      }
+
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Respuesta publicada',
+          message: 'Tu respuesta se ha añadido correctamente'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error creating reply:', error);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo enviar la respuesta. Inténtalo de nuevo.'
+        });
+      }
     }
   }, [getCurrentUser, persistReply, post, replyingTo, onNotify, onReplyAdded]);
 
@@ -137,7 +137,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
     setShowReportModal(true);
   }, [getCurrentUser, onNotify]);
 
-  const handleLikeReply = useCallback((replyId) => {
+  const handleLikeReply = useCallback(async (replyId) => {
     try {
       const currentUser = getCurrentUser();
       if (!currentUser) {
@@ -151,77 +151,157 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
         return;
       }
 
-      // Obtener likes actuales del usuario
-      const userLikes = JSON.parse(localStorage.getItem('sf_user_likes') || '{}');
-      const likeKey = `${currentUser.id}_${replyId}`;
+      console.log('👍 Liking reply:', { replyId, userId: currentUser.id });
       
-      // Obtener posts para actualizar
-      const postsData = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-      let replyFound = false;
-
-      // Buscar y actualizar la reply en todas las categorías
-      Object.keys(postsData).forEach(categoryId => {
-        postsData[categoryId].forEach((post, postIndex) => {
-          if (post.replies) {
-            const replyIndex = post.replies.findIndex(r => r.id === replyId);
-            if (replyIndex !== -1) {
-              replyFound = true;
-              const reply = postsData[categoryId][postIndex].replies[replyIndex];
-              
-              if (userLikes[likeKey]) {
-                // Remover like
-                delete userLikes[likeKey];
-                reply.likes = Math.max(0, (reply.likes || 0) - 1);
-              } else {
-                // Agregar like
-                userLikes[likeKey] = true;
-                reply.likes = (reply.likes || 0) + 1;
-              }
-              
-              postsData[categoryId][postIndex].replies[replyIndex] = reply;
+      // Datos para el like
+      const likeData = {
+        user_id: parseInt(currentUser.id),
+        vote_type: 'like'
+      };
+      
+      console.log('📤 Sending like data:', likeData);
+      
+      // Actualizar inmediatamente el estado local para mejor UX
+      setPost(prev => {
+        if (!prev || !prev.replies) return prev;
+        return {
+          ...prev,
+          replies: prev.replies.map(r => {
+            if (r.id === replyId) {
+              // Optimistic update - el servidor manejará la lógica real de votos
+              return { 
+                ...r, 
+                likes: Math.max(0, (r.likes || 0) + (r.userHasLiked ? 0 : 1)),
+                userHasLiked: !r.userHasLiked
+              };
             }
-          }
-        });
+            return r;
+          })
+        };
       });
 
-      if (replyFound) {
-        // Guardar cambios
-        localStorage.setItem('sf_postsMap', JSON.stringify(postsData));
-        localStorage.setItem('sf_user_likes', JSON.stringify(userLikes));
-        
-        // Actualizar estado local
-        setPost(prev => {
-          if (!prev || !prev.replies) return prev;
-          return {
-            ...prev,
-            replies: prev.replies.map(reply => {
-              if (reply.id === replyId) {
-                return {
-                  ...reply,
-                  likes: userLikes[likeKey] ? (reply.likes || 0) + 1 : Math.max(0, (reply.likes || 0) - 1)
-                };
-              }
-              return reply;
-            })
-          };
-        });
-
-        if (onNotify) {
-          const action = userLikes[likeKey] ? 'agregado' : 'removido';
-          onNotify({
-            type: 'success',
-            title: `Like ${action}`,
-            message: `❤️ ${action === 'agregado' ? 'Te gusta esta respuesta' : 'Ya no te gusta esta respuesta'}`
-          });
+      // Enviar like usando la API
+      await PostsAPI.vote(replyId, likeData);
+      console.log('✅ Like submitted successfully');
+      
+      // Recargar datos completos del servidor para sincronizar
+      if (post && post.id) {
+        try {
+          const updatedPostData = await PostsAPI.getAllWithReplies({ topic_id: post.topic_id });
+          const updatedPost = updatedPostData.find(p => p.id === post.id);
+          if (updatedPost) {
+            setPost(updatedPost);
+          }
+        } catch (syncError) {
+          console.warn('⚠️ Could not sync data from server:', syncError);
         }
       }
+      
+      // Notificar al componente padre si está disponible
+      if (onPostUpdated) {
+        onPostUpdated();
+      }
+      
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Like registrado',
+          message: 'Tu like ha sido registrado'
+        });
+      }
     } catch (err) {
-      console.error('Error al dar like:', err);
+      console.error('❌ Error al dar like:', err);
+      console.error('❌ Full error:', err.response?.data || err.message);
       if (onNotify) {
         onNotify({
           type: 'error',
           title: 'Error',
           message: 'No se pudo registrar el like'
+        });
+      }
+    }
+  }, [getCurrentUser, onNotify]);
+
+  const handleDislikeReply = useCallback(async (replyId) => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        if (onNotify) {
+          onNotify({
+            type: 'warning',
+            title: 'Acceso requerido',
+            message: 'Debes iniciar sesión para dar dislike'
+          });
+        }
+        return;
+      }
+
+      console.log('👎 Disliking reply:', { replyId, userId: currentUser.id });
+      
+      // Datos para el dislike
+      const dislikeData = {
+        user_id: parseInt(currentUser.id),
+        vote_type: 'dislike'
+      };
+      
+      console.log('📤 Sending dislike data:', dislikeData);
+      
+      // Actualizar inmediatamente el estado local para mejor UX
+      setPost(prev => {
+        if (!prev || !prev.replies) return prev;
+        return {
+          ...prev,
+          replies: prev.replies.map(r => {
+            if (r.id === replyId) {
+              // Optimistic update - el servidor manejará la lógica real de votos
+              return { 
+                ...r, 
+                dislikes: Math.max(0, (r.dislikes || 0) + (r.userHasDisliked ? 0 : 1)),
+                userHasDisliked: !r.userHasDisliked
+              };
+            }
+            return r;
+          })
+        };
+      });
+
+      // Enviar dislike usando la API
+      await PostsAPI.vote(replyId, dislikeData);
+      console.log('✅ Dislike submitted successfully');
+      
+      // Recargar datos completos del servidor para sincronizar
+      if (post && post.id) {
+        try {
+          const updatedPostData = await PostsAPI.getAllWithReplies({ topic_id: post.topic_id });
+          const updatedPost = updatedPostData.find(p => p.id === post.id);
+          if (updatedPost) {
+            setPost(updatedPost);
+          }
+        } catch (syncError) {
+          console.warn('⚠️ Could not sync data from server:', syncError);
+        }
+      }
+      
+      // Notificar al componente padre si está disponible
+      if (onPostUpdated) {
+        onPostUpdated();
+      }
+      
+      if (onNotify) {
+        onNotify({
+          type: 'success',
+          title: 'Dislike registrado',
+          message: 'Tu dislike ha sido registrado'
+        });
+      }
+    } catch (err) {
+      console.error('❌ Error al dar dislike:', err);
+      console.error('❌ Full error:', err.response?.data || err.message);
+      if (onNotify) {
+        onNotify({
+          type: 'error',
+          title: 'Error',
+          message: 'No se pudo registrar el dislike'
         });
       }
     }
@@ -240,20 +320,28 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
 
   // Organizar replies con hilos anidados
   const organizedReplies = useMemo(() => {
-    if (!post?.replies) return [];
+    if (!post?.replies || !Array.isArray(post.replies)) return [];
     
-    const replies = [...post.replies];
+    // Filtrar respuestas válidas
+    const validReplies = post.replies.filter(reply => 
+      reply && 
+      reply.id && 
+      (reply.content || reply.message) &&
+      (reply.author_username || reply.author)
+    );
+    
+    const replies = [...validReplies];
     
     // Ordenar según preferencia
     switch (sortBy) {
       case 'oldest':
-        replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        replies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         break;
       case 'popular':
         replies.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         break;
       default: // newest
-        replies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        replies.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     
     // Organizar en hilos (principales y respuestas)
@@ -265,7 +353,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
       ...main,
       childReplies: nestedReplies.filter(nested => nested.parentId === main.id)
     }));
-  }, [post, sortBy]); // Cambiar a post completo en lugar de post?.replies
+  }, [post, sortBy]);
 
   if (!show || !post) {
     return null;
@@ -280,13 +368,16 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
           <div className="post-header-info">
             <div className="post-author-section">
               <div className="post-author-avatar">
-                {(post.author || post.user?.username || 'A')[0].toUpperCase()}
+                {(post.author_username || post.author || 'U')[0].toUpperCase()}
               </div>
               <div className="post-author-details">
                 <h5 className="post-title">{post.title || 'Publicación'}</h5>
                 <div className="post-metadata">
-                  <span className="author-name">por {post.author || post.user?.username || 'Anónimo'}</span>
-                  <span className="post-time">{timeAgo(post.createdAt)}</span>
+                  <span className="author-name">por {post.author_username || post.author || 'Anónimo'}</span>
+                  <span className="post-time">{(() => {
+                    const date = new Date(post.created_at || post.createdAt || Date.now());
+                    return isNaN(date.getTime()) ? 'Ahora' : timeAgo(date.getTime());
+                  })()}</span>
                 </div>
               </div>
             </div>
@@ -392,17 +483,20 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
                     </div>
                   </div>
                 ) : (
-                  organizedReplies.map(reply => (
-                    <ReplyComponent 
-                      key={reply.id}
-                      reply={reply}
-                      onReplyTo={handleReplyToReply}
-                      onLike={handleLikeReply}
-                      onReportReply={handleReportReply}
-                      timeAgo={timeAgo}
-                      currentUser={getCurrentUser()}
-                    />
-                  ))
+                  organizedReplies
+                    .filter(reply => reply && reply.id) // Filtrar respuestas válidas
+                    .map(reply => (
+                      <ReplyComponent 
+                        key={reply.id}
+                        reply={reply}
+                        onReplyTo={handleReplyToReply}
+                        onLike={handleLikeReply}
+                        onDislike={handleDislikeReply}
+                        onReportReply={handleReportReply}
+                        timeAgo={timeAgo}
+                        currentUser={getCurrentUser()}
+                      />
+                    ))
                 )}
               </div>
             )}
@@ -465,7 +559,7 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
           setShowReportModal(false);
           setReportingReply(null);
         }}
-        reportedUsername={reportingReply?.author}
+        reportedUsername={reportingReply?.author_username}
         postId={reportingReply?.id}
         topicId={post?.id}
         reporterUser={getCurrentUser()}
@@ -478,8 +572,13 @@ const PostModal = ({ show, onClose, post: initialPost, onNotify, onReplyAdded })
 };
 
 // Componente para renderizar replies individuales con mejor diseño
-const ReplyComponent = ({ reply, onReplyTo, onLike, onReportReply, timeAgo, currentUser }) => {
+const ReplyComponent = ({ reply, onReplyTo, onLike, onDislike, onReportReply, timeAgo, currentUser }) => {
   const [showChildReplies, setShowChildReplies] = useState(true);
+  
+  // Validación de datos de seguridad
+  if (!reply || !reply.id) {
+    return <div className="reply-item error">Error: Datos de respuesta incompletos</div>;
+  }
   
   const getUserLikeStatus = (replyId) => {
     try {
@@ -495,14 +594,17 @@ const ReplyComponent = ({ reply, onReplyTo, onLike, onReportReply, timeAgo, curr
     <div className="reply-item">
       <div className="reply-main">
         <div className="reply-avatar">
-          {reply.authorAvatar || reply.author[0].toUpperCase()}
+          {reply.authorAvatar || reply.author_username?.[0]?.toUpperCase() || 'U'}
         </div>
         
         <div className="reply-content">
           <div className="reply-header">
             <div className="reply-author-info">
-              <span className="reply-author">{reply.author}</span>
-              <span className="reply-time">{timeAgo(reply.createdAt)}</span>
+              <span className="reply-author">{reply.author_username}</span>
+              <span className="reply-time">{(() => {
+                const date = new Date(reply.created_at || reply.createdAt || Date.now());
+                return isNaN(date.getTime()) ? 'Ahora' : timeAgo(date.getTime());
+              })()}</span>
               {reply.parentId && (
                 <span className="reply-indicator">
                   <i className="fas fa-reply"></i>
@@ -527,6 +629,15 @@ const ReplyComponent = ({ reply, onReplyTo, onLike, onReportReply, timeAgo, curr
             </button>
             
             <button 
+              className="dislike-button"
+              onClick={() => onDislike(reply.id)}
+              title="No me gusta"
+            >
+              <i className="fas fa-thumbs-down"></i>
+              <span>{reply.dislikes || 0}</span>
+            </button>
+            
+            <button 
               className="reply-action-btn reply-btn"
               onClick={() => onReplyTo(reply)}
               title="Responder"
@@ -535,7 +646,7 @@ const ReplyComponent = ({ reply, onReplyTo, onLike, onReportReply, timeAgo, curr
               Responder
             </button>
 
-            {currentUser && currentUser.username !== reply.author && (
+            {currentUser && currentUser.username !== reply.author_username && (
               <button 
                 className="reply-action-btn report-btn"
                 onClick={() => onReportReply && onReportReply(reply)}

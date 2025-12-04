@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import RecentActivity from './RecentActivity';
+import { getDashboardData } from '../services/api';
 
 const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
   // URL de YouTube
@@ -9,40 +10,34 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
   const poster = '/static/img/hero-poster.jpg';
 
   const [embedActive] = useState(true); // Siempre activo
+  const [communityStats, setCommunityStats] = useState({
+    activeTopics: 0,
+    registeredUsers: 0,
+    totalReplies: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  // Calcular estadísticas reales de la comunidad
-  const communityStats = useMemo(() => {
-    try {
-      // Obtener topics
-      const topics = JSON.parse(localStorage.getItem('sf_topics') || '[]');
-      const activeTopics = topics.length;
+  // Cargar estadísticas reales desde la API
+  useEffect(() => {
+    const loadCommunityStats = async () => {
+      try {
+        setStatsLoading(true);
+        const dashboardData = await getDashboardData();
+        
+        setCommunityStats({
+          activeTopics: dashboardData.usersStats?.totalTopics || 0,
+          registeredUsers: dashboardData.usersStats?.totalUsers || 0,
+          totalReplies: dashboardData.usersStats?.totalPosts || 0
+        });
+      } catch (error) {
+        console.error('Error loading community stats:', error);
+        // Mantener valores por defecto en caso de error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
 
-      // Obtener usuarios registrados
-      const registeredUsers = JSON.parse(localStorage.getItem('sf_registered_users') || '[]');
-      const totalUsers = registeredUsers.length;
-
-      // Obtener total de respuestas
-      const postsMap = JSON.parse(localStorage.getItem('sf_postsMap') || '{}');
-      let totalReplies = 0;
-      Object.values(postsMap).forEach(posts => {
-        if (Array.isArray(posts)) {
-          totalReplies += posts.length;
-        }
-      });
-
-      return {
-        activeTopics,
-        registeredUsers: totalUsers,
-        totalReplies
-      };
-    } catch (error) {
-      console.error('Error calculating community stats:', error);
-      return {
-        activeTopics: 0,
-        registeredUsers: 0,
-        totalReplies: 0
-      };
-    }
+    loadCommunityStats();
   }, []);
 
   const getEmbedSrc = () => {
@@ -105,15 +100,33 @@ const Hero = ({ onRegister, onNavigate, isAuthenticated }) => {
                 
                 <div className="community-stats">
                   <div className="stat-item">
-                    <div className="stat-number">{communityStats.activeTopics}</div>
+                    <div className="stat-number">
+                      {statsLoading ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                      ) : (
+                        communityStats.activeTopics
+                      )}
+                    </div>
                     <div className="stat-label">Topics Activos</div>
                   </div>
                   <div className="stat-item">
-                    <div className="stat-number">{communityStats.registeredUsers}</div>
+                    <div className="stat-number">
+                      {statsLoading ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                      ) : (
+                        communityStats.registeredUsers
+                      )}
+                    </div>
                     <div className="stat-label">Usuarios Registrados</div>
                   </div>
                   <div className="stat-item">
-                    <div className="stat-number">{communityStats.totalReplies}</div>
+                    <div className="stat-number">
+                      {statsLoading ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                      ) : (
+                        communityStats.totalReplies
+                      )}
+                    </div>
                     <div className="stat-label">Respuestas</div>
                   </div>
                 </div>
