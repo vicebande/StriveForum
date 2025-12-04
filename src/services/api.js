@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configuración base de la API
-const API_BASE_URL = 'http://127.0.0.1:3001/api';
+const API_BASE_URL = 'http://147.185.221.31:61463/api';
 
 // Configurar axios con timeout y interceptors
 const api = axios.create({
